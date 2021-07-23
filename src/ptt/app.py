@@ -97,7 +97,8 @@ class App():
                 self.connect_to(alias)
 
             elif msg_type == 'connected_peers':
-                data['aliases'] = list(self.conns).sort()
+                data['aliases'] = list(self.conns)
+                data['aliases'].sort()
 
             elif msg_type == 'remove_peer':
                 alias = msg_data['alias']
