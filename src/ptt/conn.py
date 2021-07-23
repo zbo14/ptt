@@ -113,7 +113,7 @@ class Conn:
                 self.sock = self.context.wrap_socket(sock=sock, server_side=self.server_side)
                 self.connect_event.set()
 
-                sock.settimeout(60)
+                self.sock.settimeout(60)
 
                 print('secured connection')
 
