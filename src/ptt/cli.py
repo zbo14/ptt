@@ -13,6 +13,7 @@ def main():
 
     subparsers.add_parser('start', help='start the daemon')
     subparsers.add_parser('stop', help='stop the daemon')
+    subparsers.add_parser('restart', help='restart the daemon')
 
     parser_add_peer = subparsers.add_parser('add-peer', help='add a peer')
     parser_add_peer.add_argument('alias', type=str, help='alias of peer to add')
@@ -79,6 +80,15 @@ def main():
 
         subprocess.Popen(['python3', const.APP_PATH])
         print('Started daemon')
+
+    if cmd == 'restart':
+        msg = {'type': 'stop', 'data': {}}
+
+        send_to_server(msg)
+        recv_from_server()
+
+        subprocess.Popen(['python3', const.APP_PATH])
+        print('Restarted daemon')
 
     elif cmd == 'stop':
         msg = {'type': 'stop', 'data': {}}
@@ -183,7 +193,9 @@ def main():
         res = recv_from_server()
         data = res['data']
         aliases = data['aliases']
-        print('\n'.join(aliases))
+        msg = '\n'.join(aliases) if aliases else 'No connected peers'
+
+        print(msg)
 
     close_sock()
 

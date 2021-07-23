@@ -203,7 +203,6 @@ class App():
 
         conn = Conn((self.public_ip, row[0]), (row[1], row[2]))
         conn.connect()
-        print(conn)
 
         threading.Thread(target=self.handle_conn, args=(alias, conn,), daemon=True)
 
