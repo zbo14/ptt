@@ -299,3 +299,9 @@ class App():
             return local_port
 
         raise Exception('Failed to find available TCP port')
+
+def main():
+    app = App()
+    app.run()
+
+main()
