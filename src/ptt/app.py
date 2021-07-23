@@ -204,7 +204,8 @@ class App():
         conn = Conn((self.public_ip, row[0]), (row[1], row[2]))
         conn.connect()
 
-        threading.Thread(target=self.handle_conn, args=(alias, conn,), daemon=True)
+        t = threading.Thread(target=self.handle_conn, args=(alias, conn,), daemon=True)
+        t.start()
 
         self.conns[alias] = conn
 
