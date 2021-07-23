@@ -11,8 +11,8 @@ def main():
     parser = argparse.ArgumentParser(prog='ptt')
     subparsers = parser.add_subparsers(help='sub-command-help')
 
-    parser_start = subparsers.add_parser('start', help='start the daemon')
-    parser_stop = subparsers.add_parser('stop', help='stop the daemon')
+    subparsers.add_parser('start', help='start the daemon')
+    subparsers.add_parser('stop', help='stop the daemon')
 
     parser_add_peer = subparsers.add_parser('add-peer', help='add a peer')
     parser_add_peer.add_argument('alias', type=str, help='alias of peer to add')
@@ -23,8 +23,10 @@ def main():
     parser_remove_peer = subparsers.add_parser('remove-peer', help='remove a peer')
     parser_remove_peer.add_argument('alias', type=str, help='alias of peer to remove')
 
-    parser_connect = subparsers.add_parser('connect-peer', help='connect to a peer')
-    parser_connect.add_argument('alias', type=str, help='alias of peer to connect to')
+    parser_connect_peer = subparsers.add_parser('connect-peer', help='connect to a peer')
+    parser_connect_peer.add_argument('alias', type=str, help='alias of peer to connect to')
+
+    subparsers.add_parser('connected-peers', help='show aliases of connected peers')
 
     try:
         cmd = sys.argv[1]
@@ -170,6 +172,18 @@ def main():
         recv_from_server()
 
         print(f'Connected to peer: {alias}')
+
+    elif cmd == 'connected-peers':
+        msg = {
+            'type': 'connected_peers',
+            'data': {}
+        }
+
+        send_to_server(msg)
+        res = recv_from_server()
+        data = res['data']
+        aliases = data['aliases']
+        print('\n'.join(aliases))
 
     close_sock()
 

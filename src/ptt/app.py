@@ -96,6 +96,9 @@ class App():
                 alias = msg_data['alias']
                 self.connect_to(alias)
 
+            elif msg_type == 'connected_peers':
+                data['aliases'] = list(self.conns).sort()
+
             elif msg_type == 'remove_peer':
                 alias = msg_data['alias']
                 self.remove_peer(alias)
@@ -209,7 +212,10 @@ class App():
         data = bytes()
         size = 0
 
-        def handle_data():
+        def handle_chunk(chunk=bytes()):
+            if chunk:
+                data += chunk
+
             if size == 0 and len(data) >= 4:
                 size = struct.unpack_from('!I', data)
 
@@ -223,11 +229,15 @@ class App():
                 except Exception as e:
                     print(e)
 
-                handle_data()
+                handle_chunk()
 
         while conn.is_connected():
-            data += conn.read()
-            handle_data()
+            chunk = conn.read()
+
+            if not chunk:
+                break
+
+            handle_chunk(chunk)
 
         self.remove_conn(alias)
 
@@ -289,9 +299,3 @@ class App():
             return local_port
 
         raise Exception('Failed to find available TCP port')
-
-def main():
-    app = App()
-    app.run()
-
-main()

@@ -27,7 +27,7 @@ class Conn:
 
         try:
             self.sock.close()
-        except Exception as e:
+        except Exception:
             pass
 
         self.sock = None
