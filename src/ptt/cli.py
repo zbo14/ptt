@@ -36,24 +36,32 @@ def main():
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
     sock.bind(const.DEFAULT_IPC_CLIENT_PATH)
 
+    def close_sock():
+        sock.close()
+        os.remove(const.DEFAULT_IPC_CLIENT_PATH)
+
+    def sys_exit(msg):
+        close_sock()
+        sys.exit(msg)
+
     def send_to_server(msg):
         payload = json.dumps(msg).encode()
 
         try:
             sock.sendto(payload, const.DEFAULT_IPC_SERVER_PATH)
         except FileNotFoundError:
-            sys.exit('Daemon not running')
+            sys_exit('Daemon not running')
 
     def recv_from_server():
         try:
             dgram = sock.recv(4096)
         except FileNotFoundError:
-            sys.exit('Daemon not running')
+            sys_exit('Daemon not running')
 
         res = json.loads(dgram.decode())
 
         if res['error']:
-            sys.exit(res['error'])
+            sys_exit(res['error'])
 
         return res
 
@@ -62,7 +70,7 @@ def main():
             mode = os.stat(const.DEFAULT_IPC_SERVER_PATH).st_mode
 
             if stat.S_ISSOCK(mode):
-                sys.exit('Daemon already running')
+                sys_exit('Daemon already running')
 
         except Exception:
             pass
@@ -163,7 +171,6 @@ def main():
 
         print(f'Connected to peer: {alias}')
 
-    sock.close()
-    os.remove(const.DEFAULT_IPC_CLIENT_PATH)
+    close_sock()
 
 main()

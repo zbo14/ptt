@@ -59,16 +59,16 @@ class App():
             except Exception as e:
                 print(e)
 
-        self.server.close()
-
         for conn in self.conns.values():
             conn.close()
 
         for sock in self.socks.values():
             sock.close()
 
-        self.db_conn.close()
+        self.server.close()
         os.remove(self.ipc_server_path)
+
+        self.db_conn.close()
 
     def handle_dgram(self, dgram):
 
@@ -92,7 +92,7 @@ class App():
                 alias = msg_data['alias']
                 data = self.get_peer(alias)
 
-            elif msg_type == 'connect_to':
+            elif msg_type == 'connect_peer':
                 alias = msg_data['alias']
                 self.connect_to(alias)
 
@@ -104,6 +104,9 @@ class App():
                 alias = msg_data['alias']
                 data['local_port'] = self.reserve_local_port(alias)
                 data['public_ip'] = self.public_ip
+
+            else:
+                raise Exception(f'Unrecognized message type: "{msg_type}"')
 
             self.send_to_client({
                 'error': None,
@@ -196,6 +199,7 @@ class App():
 
         conn = Conn((self.public_ip, row[0]), (row[1], row[2]))
         conn.connect()
+        print(conn)
 
         threading.Thread(target=self.handle_conn, args=(alias, conn,), daemon=True)
 
