@@ -105,7 +105,7 @@ class App():
                 data['local_port'] = self.reserve_local_port(alias)
                 data['public_ip'] = self.public_ip
 
-            else:
+            elif msg_type != 'stop':
                 raise Exception(f'Unrecognized message type: "{msg_type}"')
 
             self.send_to_client({
