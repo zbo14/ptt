@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+# import signal
 import socket
 import stat
 import subprocess
@@ -8,33 +9,40 @@ import sys
 import const
 
 def main():
-    parser = argparse.ArgumentParser(prog='ptt')
-    subparsers = parser.add_subparsers(help='sub-command-help')
+    root_parser = argparse.ArgumentParser(prog='ptt')
+    root_subparsers = root_parser.add_subparsers()
 
-    subparsers.add_parser('start', help='start the daemon')
-    subparsers.add_parser('stop', help='stop the daemon')
-    subparsers.add_parser('restart', help='restart the daemon')
+    daemon_parser = root_subparsers.add_parser('daemon')
+    daemon_subparsers = daemon_parser.add_subparsers()
 
-    parser_add_peer = subparsers.add_parser('add-peer', help='add a peer')
-    parser_add_peer.add_argument('alias', type=str, help='alias of peer to add')
+    peer_parser = root_subparsers.add_parser('peer')
+    peer_subparsers = peer_parser.add_subparsers()
 
-    parser_get_peer = subparsers.add_parser('get-peer', help='get a peer\'s info')
-    parser_get_peer.add_argument('alias', type=str, help='alias of peer to get info for')
+    root_subparsers.add_parser('connected-peers')
 
-    parser_remove_peer = subparsers.add_parser('remove-peer', help='remove a peer')
-    parser_remove_peer.add_argument('alias', type=str, help='alias of peer to remove')
+    daemon_subparsers.add_parser('start', add_help=False)
+    daemon_subparsers.add_parser('stop', add_help=False)
+    daemon_subparsers.add_parser('restart', add_help=False)
 
-    parser_connect_peer = subparsers.add_parser('connect-peer', help='connect to a peer')
-    parser_connect_peer.add_argument('alias', type=str, help='alias of peer to connect to')
+    peer_subparsers.add_parser('add', add_help=False)
+    peer_subparsers.add_parser('show', add_help=False)
+    peer_subparsers.add_parser('remove', add_help=False)
+    peer_subparsers.add_parser('connect', add_help=False)
+    peer_subparsers.add_parser('chat', add_help=False)
 
-    subparsers.add_parser('connected-peers', help='show aliases of connected peers')
+    peer_parser.add_argument('alias', type=str, help='alias of peer')
 
     try:
         cmd = sys.argv[1]
     except IndexError:
-        sys.argv.append('-h')
+        cmd = None
 
-    args = vars(parser.parse_args())
+    try:
+        subcmd = sys.argv[2]
+    except IndexError:
+        subcmd = None
+
+    args = vars(root_parser.parse_args())
 
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
     sock.bind(const.DEFAULT_IPC_CLIENT_PATH)
@@ -68,120 +76,142 @@ def main():
 
         return res
 
-    if cmd == 'start':
-        try:
-            mode = os.stat(const.DEFAULT_IPC_SERVER_PATH).st_mode
+    if cmd == 'daemon':
+        if not subcmd:
+            sys_exit('usage: ptt daemon {start,stop,restart} ...')
 
-            if stat.S_ISSOCK(mode):
-                sys_exit('Daemon already running')
+        elif subcmd == 'start':
+            try:
+                mode = os.stat(const.DEFAULT_IPC_SERVER_PATH).st_mode
 
-        except Exception:
-            pass
+                if stat.S_ISSOCK(mode):
+                    sys_exit('Daemon already running')
 
-        subprocess.Popen(['python3', const.APP_PATH])
-        print('Started daemon')
+            except Exception:
+                pass
 
-    if cmd == 'restart':
-        msg = {'type': 'stop', 'data': {}}
+            subprocess.Popen(['python3', const.APP_PATH])
+            print('Started daemon')
 
-        send_to_server(msg)
-        recv_from_server()
+        elif subcmd == 'restart':
+            msg = {'type': 'stop', 'data': {}}
 
-        subprocess.Popen(['python3', const.APP_PATH])
-        print('Restarted daemon')
+            send_to_server(msg)
+            recv_from_server()
 
-    elif cmd == 'stop':
-        msg = {'type': 'stop', 'data': {}}
+            subprocess.Popen(['python3', const.APP_PATH])
+            print('Restarted daemon')
 
-        send_to_server(msg)
-        recv_from_server()
+        elif subcmd == 'stop':
+            msg = {'type': 'stop', 'data': {}}
 
-        print('Stopped daemon')
+            send_to_server(msg)
+            recv_from_server()
 
-    elif cmd == 'add-peer':
-        alias = args['alias']
+            print('Stopped daemon')
 
-        msg = {
-            'type': 'reserve_local_port',
-            'data': {'alias': alias}
-        }
+    elif cmd == 'peer':
+        if not subcmd:
+            sys_exit('usage: ptt peer {add,remove,show,connect,chat} ...')
 
-        send_to_server(msg)
+        elif subcmd == 'add':
+            alias = args['alias']
 
-        res = recv_from_server()
-        data = res['data']
-        public_ip = data['public_ip']
-        local_port = data['local_port']
-
-        print(f'Share with {alias}: public_ip={public_ip}, local port={local_port}')
-
-        remote_ip = None
-        remote_port = None
-
-        while not remote_ip:
-            remote_ip = input(f'Enter {alias}\'s IP address: ')
-
-        while not remote_port:
-            remote_port = int(input(f'Enter {alias}\'s port: '))
-
-        msg = {
-            'type': 'add_peer',
-
-            'data': {
-                'alias': alias,
-                'remote_ip': remote_ip,
-                'remote_port': remote_port
+            msg = {
+                'type': 'reserve_local_port',
+                'data': {'alias': alias}
             }
-        }
 
-        send_to_server(msg)
-        recv_from_server()
+            send_to_server(msg)
 
-        print(f'Added peer: {alias}')
+            res = recv_from_server()
+            data = res['data']
+            public_ip = data['public_ip']
+            local_port = data['local_port']
 
-    elif cmd == 'get-peer':
-        alias = args['alias']
+            print(f'Share with {alias}: public_ip={public_ip}, local port={local_port}')
 
-        msg = {
-            'type': 'get_peer',
-            'data': {'alias': alias}
-        }
+            remote_ip = None
+            remote_port = None
 
-        send_to_server(msg)
+            while not remote_ip:
+                remote_ip = input(f'Enter {alias}\'s IP address: ')
 
-        res = recv_from_server()
-        data = res['data']
-        local_port = data['local_port']
-        remote_ip = data['remote_ip']
-        remote_port = data['remote_port']
+            while not remote_port:
+                remote_port = int(input(f'Enter {alias}\'s port: '))
 
-        print(f'Peer {alias}: local_port={local_port}, remote_ip={remote_ip}, remote_port={remote_port}')
+            msg = {
+                'type': 'add_peer',
 
-    elif cmd == 'remove-peer':
-        alias = args['alias']
+                'data': {
+                    'alias': alias,
+                    'remote_ip': remote_ip,
+                    'remote_port': remote_port
+                }
+            }
 
-        msg = {
-            'type': 'remove_peer',
-            'data': {'alias': alias}
-        }
+            send_to_server(msg)
+            recv_from_server()
 
-        send_to_server(msg)
-        recv_from_server()
+            print(f'Added peer: {alias}')
 
-        print(f'Removed peer: {alias}')
+        elif subcmd == 'remove':
+            alias = args['alias']
 
-    elif cmd == 'connect-peer':
-        alias = args['alias']
+            msg = {
+                'type': 'remove_peer',
+                'data': {'alias': alias}
+            }
 
-        msg = {
-            'type': 'connect_peer',
-            'data': {'alias': alias}
-        }
+            send_to_server(msg)
+            recv_from_server()
 
-        send_to_server(msg)
-        recv_from_server()
+            print(f'Removed peer: {alias}')
 
-        print(f'Connected to peer: {alias}')
+        elif subcmd == 'show':
+            alias = args['alias']
+
+            msg = {
+                'type': 'get_peer',
+                'data': {'alias': alias}
+            }
+
+            send_to_server(msg)
+
+            res = recv_from_server()
+            data = res['data']
+            local_port = data['local_port']
+            remote_ip = data['remote_ip']
+            remote_port = data['remote_port']
+
+            print(f'Peer {alias}: local_port={local_port}, remote_ip={remote_ip}, remote_port={remote_port}')
+
+        elif subcmd == 'connect':
+            alias = args['alias']
+
+            msg = {
+                'type': 'connect_peer',
+                'data': {'alias': alias}
+            }
+
+            send_to_server(msg)
+            recv_from_server()
+
+            print(f'Connected to peer: {alias}')
+
+        elif subcmd == 'chat':
+            alias = args['alias']
+            content = input(f'Write your message to {alias}: ')
+
+            msg = {
+                'type': 'send_text',
+                'data': {'alias': alias, 'content': content}
+            }
+
+            send_to_server(msg)
+            recv_from_server()
+
+            print(recv_from_server())
 
     elif cmd == 'connected-peers':
         msg = {

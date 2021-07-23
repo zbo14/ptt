@@ -82,11 +82,20 @@ class App():
         data = {}
 
         try:
-            if msg_type == 'add_peer':
+            if msg_type == 'reserve_local_port':
+                alias = msg_data['alias']
+                data['local_port'] = self.reserve_local_port(alias)
+                data['public_ip'] = self.public_ip
+
+            elif msg_type == 'add_peer':
                 alias = msg_data['alias']
                 remote_ip = msg_data['remote_ip']
                 remote_port = msg_data['remote_port']
                 self.add_peer(alias, remote_ip, remote_port)
+
+            elif msg_type == 'remove_peer':
+                alias = msg_data['alias']
+                self.remove_peer(alias)
 
             elif msg_type == 'get_peer':
                 alias = msg_data['alias']
@@ -96,18 +105,14 @@ class App():
                 alias = msg_data['alias']
                 self.connect_to(alias)
 
+            elif msg_type == 'send_text':
+                alias = msg_data['alias']
+                content = msg_data['content']
+                self.send_text(alias, content)
+
             elif msg_type == 'connected_peers':
                 data['aliases'] = list(self.conns)
                 data['aliases'].sort()
-
-            elif msg_type == 'remove_peer':
-                alias = msg_data['alias']
-                self.remove_peer(alias)
-
-            elif msg_type == 'reserve_local_port':
-                alias = msg_data['alias']
-                data['local_port'] = self.reserve_local_port(alias)
-                data['public_ip'] = self.public_ip
 
             elif msg_type != 'stop':
                 raise Exception(f'Unrecognized message type: "{msg_type}"')
@@ -209,18 +214,37 @@ class App():
 
         self.conns[alias] = conn
 
+    def send_text(self, alias, content):
+        self.get_peer(alias)
+
+        if alias not in self.conns:
+            raise Exception(f'Not connected to "{alias}"')
+
+        msg = {
+            'type': 'text',
+            'data': {'content': content}
+        }
+
+        payload = json.dumps(msg).encode()
+        header = struct.pack('!I', len(payload))
+
+        self.conns[alias].write(header + payload)
+
     def handle_conn(self, alias, conn):
         data = bytes()
         size = 0
 
         def handle_chunk(chunk=bytes()):
+            nonlocal data
+            nonlocal size
+
             if chunk:
                 data += chunk
 
-            if size == 0 and len(data) >= 4:
+            if not size and len(data) >= 4:
                 size = struct.unpack_from('!I', data)
 
-            if size > 0 and len(data) - 4 >= size:
+            if size and len(data) - 4 >= size:
                 payload = data[4: 4 + size]
                 data = data[4 + size:]
                 size = 0
