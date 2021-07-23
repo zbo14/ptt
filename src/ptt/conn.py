@@ -111,9 +111,9 @@ class Conn:
                 print('established connection')
 
                 self.sock = self.context.wrap_socket(sock=sock, server_side=self.server_side)
-                self.connect_event.set()
+                self.sock.settimeout(None)
 
-                self.sock.settimeout(60)
+                self.connect_event.set()
 
                 print('secured connection')
 
@@ -130,15 +130,3 @@ class Conn:
                 sock.close()
 
         raise Exception('Failed to connect to peer')
-
-if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        raise Exception('Expected 2 arguments: <public_ip> <remote_ip>')
-
-    conn = Conn((sys.argv[1], 12346), (sys.argv[2], 12346))
-    conn.connect()
-
-    conn.write('hello')
-
-    msg = conn.read(4096)
-    print(msg.decode())
