@@ -241,10 +241,10 @@ class App():
             if chunk:
                 data += chunk
 
-            if not size and len(data) >= 4:
-                size = struct.unpack_from('!I', data)
+            if size == 0 and len(data) >= 4:
+                size = struct.unpack_from('!I', data)[0]
 
-            if size and len(data) - 4 >= size:
+            if len(data) - 4 >= size > 0:
                 payload = data[4: 4 + size]
                 data = data[4 + size:]
                 size = 0
@@ -280,8 +280,6 @@ class App():
         msg['from'] = alias
 
         if msg_type == 'text':
-            content = msg_data['content']
-            print(f'Received text (content_length={len(content)})')
             self.send_to_client(msg)
 
         elif msg_type == 'file':

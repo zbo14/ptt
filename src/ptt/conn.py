@@ -26,6 +26,7 @@ class Conn:
         self.connect_event.clear()
 
         try:
+            self.sock.shutdown()
             self.sock.close()
         except Exception:
             pass

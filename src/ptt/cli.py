@@ -71,162 +71,169 @@ def main():
 
         res = json.loads(dgram.decode())
 
-        if res['error']:
+        if 'error' in res and res['error']:
             sys_exit(res['error'])
 
         return res
 
-    if cmd == 'daemon':
-        if not subcmd:
-            sys_exit('usage: ptt daemon {start,stop,restart} ...')
+    try:
+        if cmd == 'daemon':
+            if not subcmd:
+                sys_exit('usage: ptt daemon {start,stop,restart} ...')
 
-        elif subcmd == 'start':
-            try:
-                mode = os.stat(const.DEFAULT_IPC_SERVER_PATH).st_mode
+            elif subcmd == 'start':
+                try:
+                    mode = os.stat(const.DEFAULT_IPC_SERVER_PATH).st_mode
 
-                if stat.S_ISSOCK(mode):
-                    sys_exit('Daemon already running')
+                    if stat.S_ISSOCK(mode):
+                        sys_exit('Daemon already running')
 
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
-            subprocess.Popen(['python3', const.APP_PATH])
-            print('Started daemon')
+                subprocess.Popen(['python3', const.APP_PATH])
+                print('Started daemon')
 
-        elif subcmd == 'restart':
-            msg = {'type': 'stop', 'data': {}}
+            elif subcmd == 'restart':
+                msg = {'type': 'stop', 'data': {}}
 
-            send_to_server(msg)
-            recv_from_server()
+                send_to_server(msg)
+                recv_from_server()
 
-            subprocess.Popen(['python3', const.APP_PATH])
-            print('Restarted daemon')
+                subprocess.Popen(['python3', const.APP_PATH])
+                print('Restarted daemon')
 
-        elif subcmd == 'stop':
-            msg = {'type': 'stop', 'data': {}}
+            elif subcmd == 'stop':
+                msg = {'type': 'stop', 'data': {}}
 
-            send_to_server(msg)
-            recv_from_server()
+                send_to_server(msg)
+                recv_from_server()
 
-            print('Stopped daemon')
+                print('Stopped daemon')
 
-    elif cmd == 'peer':
-        if not subcmd:
-            sys_exit('usage: ptt peer {add,remove,show,connect,chat} ...')
+        elif cmd == 'peer':
+            if not subcmd:
+                sys_exit('usage: ptt peer {add,remove,show,connect,chat} ...')
 
-        elif subcmd == 'add':
-            alias = args['alias']
+            elif subcmd == 'add':
+                alias = args['alias']
 
-            msg = {
-                'type': 'reserve_local_port',
-                'data': {'alias': alias}
-            }
-
-            send_to_server(msg)
-
-            res = recv_from_server()
-            data = res['data']
-            public_ip = data['public_ip']
-            local_port = data['local_port']
-
-            print(f'Share with {alias}: public_ip={public_ip}, local port={local_port}')
-
-            remote_ip = None
-            remote_port = None
-
-            while not remote_ip:
-                remote_ip = input(f'Enter {alias}\'s IP address: ')
-
-            while not remote_port:
-                remote_port = int(input(f'Enter {alias}\'s port: '))
-
-            msg = {
-                'type': 'add_peer',
-
-                'data': {
-                    'alias': alias,
-                    'remote_ip': remote_ip,
-                    'remote_port': remote_port
+                msg = {
+                    'type': 'reserve_local_port',
+                    'data': {'alias': alias}
                 }
-            }
 
-            send_to_server(msg)
-            recv_from_server()
+                send_to_server(msg)
 
-            print(f'Added peer: {alias}')
+                res = recv_from_server()
+                data = res['data']
+                public_ip = data['public_ip']
+                local_port = data['local_port']
 
-        elif subcmd == 'remove':
-            alias = args['alias']
+                print(f'Share with {alias}: public_ip={public_ip}, local port={local_port}')
 
+                remote_ip = None
+                remote_port = None
+
+                while not remote_ip:
+                    remote_ip = input(f'Enter {alias}\'s IP address: ')
+
+                while not remote_port:
+                    remote_port = int(input(f'Enter {alias}\'s port: '))
+
+                msg = {
+                    'type': 'add_peer',
+
+                    'data': {
+                        'alias': alias,
+                        'remote_ip': remote_ip,
+                        'remote_port': remote_port
+                    }
+                }
+
+                send_to_server(msg)
+                recv_from_server()
+
+                print(f'Added peer: {alias}')
+
+            elif subcmd == 'remove':
+                alias = args['alias']
+
+                msg = {
+                    'type': 'remove_peer',
+                    'data': {'alias': alias}
+                }
+
+                send_to_server(msg)
+                recv_from_server()
+
+                print(f'Removed peer: {alias}')
+
+            elif subcmd == 'show':
+                alias = args['alias']
+
+                msg = {
+                    'type': 'get_peer',
+                    'data': {'alias': alias}
+                }
+
+                send_to_server(msg)
+
+                res = recv_from_server()
+                data = res['data']
+                local_port = data['local_port']
+                remote_ip = data['remote_ip']
+                remote_port = data['remote_port']
+
+                print(f'Peer {alias}: local_port={local_port}, remote_ip={remote_ip}, remote_port={remote_port}')
+
+            elif subcmd == 'connect':
+                alias = args['alias']
+
+                msg = {
+                    'type': 'connect_peer',
+                    'data': {'alias': alias}
+                }
+
+                send_to_server(msg)
+                recv_from_server()
+
+                print(f'Connected to peer: {alias}')
+
+            elif subcmd == 'chat':
+                alias = args['alias']
+                content = input(f'Write your message to {alias}: ')
+
+                msg = {
+                    'type': 'send_text',
+                    'data': {'alias': alias, 'content': content}
+                }
+
+                send_to_server(msg)
+                recv_from_server()
+
+                msg = recv_from_server()
+                alias = msg['from']
+                data = msg['data']
+                content = data['content']
+
+                print(f'From {alias}: {content}')
+
+        elif cmd == 'connected-peers':
             msg = {
-                'type': 'remove_peer',
-                'data': {'alias': alias}
+                'type': 'connected_peers',
+                'data': {}
             }
 
             send_to_server(msg)
-            recv_from_server()
-
-            print(f'Removed peer: {alias}')
-
-        elif subcmd == 'show':
-            alias = args['alias']
-
-            msg = {
-                'type': 'get_peer',
-                'data': {'alias': alias}
-            }
-
-            send_to_server(msg)
-
             res = recv_from_server()
             data = res['data']
-            local_port = data['local_port']
-            remote_ip = data['remote_ip']
-            remote_port = data['remote_port']
+            aliases = data['aliases']
+            msg = '\n'.join(aliases) if aliases else 'No connected peers'
 
-            print(f'Peer {alias}: local_port={local_port}, remote_ip={remote_ip}, remote_port={remote_port}')
+            print(msg)
 
-        elif subcmd == 'connect':
-            alias = args['alias']
-
-            msg = {
-                'type': 'connect_peer',
-                'data': {'alias': alias}
-            }
-
-            send_to_server(msg)
-            recv_from_server()
-
-            print(f'Connected to peer: {alias}')
-
-        elif subcmd == 'chat':
-            alias = args['alias']
-            content = input(f'Write your message to {alias}: ')
-
-            msg = {
-                'type': 'send_text',
-                'data': {'alias': alias, 'content': content}
-            }
-
-            send_to_server(msg)
-            recv_from_server()
-
-            print(recv_from_server())
-
-    elif cmd == 'connected-peers':
-        msg = {
-            'type': 'connected_peers',
-            'data': {}
-        }
-
-        send_to_server(msg)
-        res = recv_from_server()
-        data = res['data']
-        aliases = data['aliases']
-        msg = '\n'.join(aliases) if aliases else 'No connected peers'
-
-        print(msg)
-
-    close_sock()
+    finally:
+        close_sock()
 
 main()
