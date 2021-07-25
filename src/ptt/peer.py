@@ -25,9 +25,17 @@ class Peer():
         _, self.local_port = self.sock.getsockname()
 
     def connect(self):
-        self.conn = Conn((self.app.public_ip, self.local_port), (self.remote_ip, self.remote_port))
-        self.conn.connect()
+        if self.is_connected():
+            raise Exception(f'Peer "{self.alias}" is already connected')
 
+        try:
+            self.conn = Conn((self.app.public_ip, self.local_port), (self.remote_ip, self.remote_port))
+            self.conn.connect()
+        except Exception as e:
+            self.conn = None
+            raise e
+
+    def run(self):
         data = bytes()
         size = 0
 

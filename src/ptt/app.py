@@ -153,11 +153,9 @@ class App():
 
     def connect_peer(self, alias):
         peer = self.get_peer(alias)
+        peer.connect()
 
-        if peer.is_connected():
-            raise Exception(f'Already connected to peer "{alias}"')
-
-        t = threading.Thread(target=peer.connect, daemon=True)
+        t = threading.Thread(target=peer.run, daemon=True)
         t.start()
 
     def send_text(self, alias, content):
