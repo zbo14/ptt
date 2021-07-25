@@ -2,12 +2,11 @@ import json
 import os
 import socket
 import sqlite3
-import struct
-import sys
 import threading
 import urllib.request as request
-from conn import Conn
 import const
+
+from peer import Peer
 
 class App():
     def __init__(
@@ -18,18 +17,19 @@ class App():
             ipc_server_path=const.DEFAULT_IPC_SERVER_PATH
         ):
 
-        self.conns = {}
         self.db_conn = sqlite3.connect(db_path)
         self.db_cursor = self.db_conn.cursor()
         self.ipc_client_path = ipc_client_path
         self.ipc_server_path = ipc_server_path
         self.public_ip = request.urlopen(ident_endpoint).read().decode('utf8')
-        self.socks = {}
+
+        self.peers = {}
+
         self.server = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.server.bind(ipc_server_path)
 
         self.init_db()
-        self.bind_sockets()
+        self.init_peers()
 
     def init_db(self):
         sql = '''CREATE TABLE IF NOT EXISTS peers
@@ -48,6 +48,14 @@ class App():
         self.db_cursor.execute(sql)
         self.db_conn.commit()
 
+    def init_peers(self):
+        sql = 'SELECT * FROM peers'
+
+        for alias, local_port, remote_ip, remote_port in self.db_cursor.execute(sql):
+            peer = Peer(alias, self.public_ip, local_port, remote_ip, remote_port)
+            peer.bind_socket()
+            self.peers[alias] = peer
+
     def run(self):
         done = False
 
@@ -59,11 +67,8 @@ class App():
             except Exception as e:
                 print(e)
 
-        for conn in self.conns.values():
-            conn.close()
-
-        for sock in self.socks.values():
-            sock.close()
+        for peer in self.peers.values():
+            peer.close()
 
         self.server.close()
         os.remove(self.ipc_server_path)
@@ -71,7 +76,6 @@ class App():
         self.db_conn.close()
 
     def handle_dgram(self, dgram):
-
         if not dgram:
             return True
 
@@ -97,22 +101,28 @@ class App():
                 alias = msg_data['alias']
                 self.remove_peer(alias)
 
-            elif msg_type == 'get_peer':
+            elif msg_type == 'show_peer':
                 alias = msg_data['alias']
-                data = self.get_peer(alias)
+                peer = self.get_peer(alias)
+                data['local_port'] = peer.local_port
+                data['remote_ip'] = peer.remote_ip
+                data['remote_port'] = peer.remote_port
 
             elif msg_type == 'connect_peer':
                 alias = msg_data['alias']
-                self.connect_to(alias)
+                self.connect_peer(alias)
 
             elif msg_type == 'send_text':
                 alias = msg_data['alias']
                 content = msg_data['content']
                 self.send_text(alias, content)
 
-            elif msg_type == 'connected_peers':
-                data['aliases'] = list(self.conns)
-                data['aliases'].sort()
+            elif msg_type == 'is_peer_connected':
+                alias = msg_data['alias']
+                peer = self.get_peer(alias)
+
+                if not peer.is_connected():
+                    raise Exception(f'Peer "{alias}" isn\'t connected')
 
             elif msg_type != 'stop':
                 raise Exception(f'Unrecognized message type: "{msg_type}"')
@@ -130,174 +140,45 @@ class App():
 
         return msg_type == 'stop'
 
-    def remove_sock(self, alias):
-        if alias in self.socks:
-            self.socks[alias].close()
-            del self.socks[alias]
-
-    def remove_conn(self, alias):
-        if alias in self.conns:
-            self.conns[alias].close()
-            del self.conns[alias]
-
-    def bind_socket(local_port=0):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-
-        sock.bind(('', local_port))
-
-        _, local_port = sock.getsockname()
-
-        return sock, local_port
-
     def add_peer(self, alias, remote_ip, remote_port):
-        sql = f'SELECT * FROM peers WHERE alias="{alias}" LIMIT 1'
-        row = self.db_cursor.execute(sql).fetchone()
-
-        if row is None:
-            raise Exception(f'No local port reserved for "{alias}"')
-
-        if row[2] != '' or row[3] != 0:
-            raise Exception('Contact already added')
-
-        sql = f'''UPDATE peers
-            SET remote_ip = "{remote_ip}",
-                remote_port = "{remote_port}"
-            WHERE
-                alias = "{alias}"'''
-
-        self.db_cursor.execute(sql)
-        self.db_conn.commit()
+        peer = self.get_peer(alias)
+        peer.add_remote(remote_ip, remote_port)
 
     def get_peer(self, alias):
-        sql = f'SELECT * FROM peers WHERE alias="{alias}" LIMIT 1'
-        row = self.db_cursor.execute(sql).fetchone()
+        try:
+            return self.peers[alias]
 
-        if row is None:
+        except KeyError:
             raise Exception(f'Peer "{alias}" not found')
 
-        return {
-            'local_port': row[1],
-            'remote_ip': row[2],
-            'remote_port': row[3]
-        }
+    def connect_peer(self, alias):
+        peer = self.get_peer(alias)
 
-    def bind_sockets(self):
-        sql = 'SELECT alias, local_port FROM peers'
+        if peer.is_connected():
+            raise Exception(f'Already connected to peer "{alias}"')
 
-        for alias, local_port in self.db_cursor.execute(sql):
-            sock, _ = App.bind_socket(local_port)
-            self.socks[alias] = sock
-
-    def connect_to(self, alias):
-        if alias in self.conns:
-            raise Exception(f'Already connected to "{alias}"')
-
-        sql = f'''SELECT local_port, remote_ip, remote_port
-            FROM peers WHERE alias="{alias}" LIMIT 1'''
-
-        row = self.db_cursor.execute(sql).fetchone()
-
-        if row is None:
-            raise Exception(f'Peer "{alias}" not found')
-
-        if row[1] == '' or row[2] == 0:
-            raise Exception('Contact not yet added')
-
-        conn = Conn((self.public_ip, row[0]), (row[1], row[2]))
-        conn.connect()
-
-        t = threading.Thread(target=self.handle_conn, args=(alias, conn,), daemon=True)
+        t = threading.Thread(target=peer.connect, daemon=True)
         t.start()
 
-        self.conns[alias] = conn
-
     def send_text(self, alias, content):
-        self.get_peer(alias)
-
-        if alias not in self.conns:
-            raise Exception(f'Not connected to "{alias}"')
+        peer = self.get_peer(alias)
 
         msg = {
             'type': 'text',
             'data': {'content': content}
         }
 
-        payload = json.dumps(msg).encode()
-        header = struct.pack('!I', len(payload))
-
-        self.conns[alias].write(header + payload)
-
-    def handle_conn(self, alias, conn):
-        data = bytes()
-        size = 0
-
-        def handle_chunk(chunk=bytes()):
-            nonlocal data
-            nonlocal size
-
-            if chunk:
-                data += chunk
-
-            if size == 0 and len(data) >= 4:
-                size = struct.unpack_from('!I', data)[0]
-
-            if len(data) - 4 >= size > 0:
-                payload = data[4: 4 + size]
-                data = data[4 + size:]
-                size = 0
-
-                try:
-                    self.handle_payload(alias, conn, payload)
-                except Exception as e:
-                    print(e)
-
-                handle_chunk()
-
-        while conn.is_connected():
-            chunk = conn.read()
-
-            if not chunk:
-                break
-
-            handle_chunk(chunk)
-
-        self.remove_conn(alias)
+        peer.send_msg(msg)
 
     def send_to_client(self, msg):
         payload = json.dumps(msg).encode()
 
         return self.server.sendto(payload, self.ipc_client_path)
 
-    def handle_payload(self, alias, conn, payload):
-        msg = json.loads(payload.decode())
-
-        msg_type = msg['type']
-        msg_data = msg['data']
-
-        msg['from'] = alias
-
-        if msg_type == 'text':
-            self.send_to_client(msg)
-
-        elif msg_type == 'file':
-            print('TODO')
-
-        else:
-            raise Exception(f'Unexpected message type: "{msg_type}"')
-
     def remove_peer(self, alias):
-        self.get_peer(alias)
-
-        sql = f'DELETE FROM peers WHERE alias="{alias}"'
-
-        self.db_cursor.execute(sql)
-        self.db_conn.commit()
-
-        self.remove_conn(alias)
-        self.remove_sock(alias)
+        peer = self.get_peer(alias)
+        peer.delete()
+        del self.peers[alias]
 
     def reserve_local_port(self, alias):
         sql = f'SELECT 1 FROM peers WHERE alias="{alias}" LIMIT 1'
@@ -306,20 +187,16 @@ class App():
             raise Exception(f'Peer "{alias}" already exists')
 
         for _ in range(1, 10):
-            sock, local_port = App.bind_socket()
-            sql = f'SELECT 1 FROM peers WHERE local_port="{local_port}" LIMIT 1'
+            peer = Peer(self, alias)
 
-            if self.db_cursor.execute(sql).fetchone():
-                sock.close()
-                continue
+            try:
+                peer.create()
+                peer.bind_socket()
+                self.peers[alias] = peer
 
-            sql = f'INSERT INTO peers VALUES ("{alias}", {local_port}, "", 0)'
-            self.db_cursor.execute(sql)
-            self.db_conn.commit()
-
-            self.socks[alias] = sock
-
-            return local_port
+                return peer.local_port
+            except Exception as e:
+                print(e)
 
         raise Exception('Failed to find available TCP port')
 

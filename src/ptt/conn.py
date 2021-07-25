@@ -20,9 +20,6 @@ class Conn:
         return self.connect_event.is_set()
 
     def close(self):
-        if not self.is_connected():
-            raise Exception('Not connected')
-
         self.connect_event.clear()
 
         try:
@@ -34,9 +31,6 @@ class Conn:
         self.sock = None
 
     def write(self, data):
-        if not self.is_connected():
-            raise Exception('Not connected')
-
         if isinstance(data, str):
             data = data.encode('utf8')
 
@@ -51,9 +45,6 @@ class Conn:
             raise e
 
     def read(self, bufsize=4096):
-        if not self.is_connected():
-            raise Exception('Not connected')
-
         try:
             return self.sock.recv(bufsize)
 
@@ -99,9 +90,6 @@ class Conn:
         self.context = context
 
     def connect(self):
-        if self.is_connected():
-            raise Exception('Already connected')
-
         sock = None
 
         for _ in range(1, 10):

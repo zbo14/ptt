@@ -18,8 +18,6 @@ def main():
     peer_parser = root_subparsers.add_parser('peer')
     peer_subparsers = peer_parser.add_subparsers()
 
-    root_subparsers.add_parser('connected-peers')
-
     daemon_subparsers.add_parser('start', add_help=False)
     daemon_subparsers.add_parser('stop', add_help=False)
     daemon_subparsers.add_parser('restart', add_help=False)
@@ -28,7 +26,8 @@ def main():
     peer_subparsers.add_parser('show', add_help=False)
     peer_subparsers.add_parser('remove', add_help=False)
     peer_subparsers.add_parser('connect', add_help=False)
-    peer_subparsers.add_parser('chat', add_help=False)
+    peer_subparsers.add_parser('is-connected', add_help=False)
+    peer_subparsers.add_parser('text', add_help=False)
 
     peer_parser.add_argument('alias', type=str, help='alias of peer')
 
@@ -76,6 +75,11 @@ def main():
 
         return res
 
+    def request(msg):
+        send_to_server(msg)
+
+        return recv_from_server()
+
     try:
         if cmd == 'daemon':
             if not subcmd:
@@ -97,8 +101,7 @@ def main():
             elif subcmd == 'restart':
                 msg = {'type': 'stop', 'data': {}}
 
-                send_to_server(msg)
-                recv_from_server()
+                request(msg)
 
                 subprocess.Popen(['python3', const.APP_PATH])
                 print('Restarted daemon')
@@ -106,8 +109,7 @@ def main():
             elif subcmd == 'stop':
                 msg = {'type': 'stop', 'data': {}}
 
-                send_to_server(msg)
-                recv_from_server()
+                request(msg)
 
                 print('Stopped daemon')
 
@@ -123,9 +125,8 @@ def main():
                     'data': {'alias': alias}
                 }
 
-                send_to_server(msg)
+                res = request(msg)
 
-                res = recv_from_server()
                 data = res['data']
                 public_ip = data['public_ip']
                 local_port = data['local_port']
@@ -151,8 +152,7 @@ def main():
                     }
                 }
 
-                send_to_server(msg)
-                recv_from_server()
+                request(msg)
 
                 print(f'Added peer: {alias}')
 
@@ -164,8 +164,7 @@ def main():
                     'data': {'alias': alias}
                 }
 
-                send_to_server(msg)
-                recv_from_server()
+                request(msg)
 
                 print(f'Removed peer: {alias}')
 
@@ -173,19 +172,18 @@ def main():
                 alias = args['alias']
 
                 msg = {
-                    'type': 'get_peer',
+                    'type': 'show_peer',
                     'data': {'alias': alias}
                 }
 
-                send_to_server(msg)
+                res = request(msg)
 
-                res = recv_from_server()
                 data = res['data']
                 local_port = data['local_port']
                 remote_ip = data['remote_ip']
                 remote_port = data['remote_port']
 
-                print(f'Peer {alias}: local_port={local_port}, remote_ip={remote_ip}, remote_port={remote_port}')
+                print(f'Peer "{alias}": local_port={local_port}, remote_ip={remote_ip}, remote_port={remote_port}')
 
             elif subcmd == 'connect':
                 alias = args['alias']
@@ -195,43 +193,42 @@ def main():
                     'data': {'alias': alias}
                 }
 
-                send_to_server(msg)
-                recv_from_server()
+                request(msg)
 
                 print(f'Connected to peer: {alias}')
 
-            elif subcmd == 'chat':
+            elif subcmd == 'is-connected':
                 alias = args['alias']
-                content = input(f'Write your message to {alias}: ')
+
+                msg = {
+                    'type': 'is_peer_connected',
+                    'data': {'alias': alias}
+                }
+
+                request(msg)
+                print(f'Peer "{alias}" is connected')
+
+            elif subcmd == 'text':
+                alias = args['alias']
+
+                msg = {
+                    'type': 'is_peer_connected',
+                    'data': {'alias': alias}
+                }
+
+                request(msg)
+
+                alias = args['alias']
+                content = input(f'Write to "{alias}": ')
 
                 msg = {
                     'type': 'send_text',
                     'data': {'alias': alias, 'content': content}
                 }
 
-                send_to_server(msg)
-                recv_from_server()
+                request(msg)
 
-                msg = recv_from_server()
-                alias = msg['from']
-                data = msg['data']
-                content = data['content']
-
-                print(f'From {alias}: {content}')
-
-        elif cmd == 'connected-peers':
-            msg = {
-                'type': 'connected_peers',
-                'data': {}
-            }
-
-            send_to_server(msg)
-            res = recv_from_server()
-            data = res['data']
-            aliases = data['aliases']
-            msg = '\n'.join(aliases) if aliases else 'No connected peers'
-
-            print(msg)
+                print(f'Sent message to "{alias}"')
 
     finally:
         close_sock()
