@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-# import signal
 import socket
 import stat
 import subprocess
@@ -230,7 +229,9 @@ def main():
 
                 print(f'Sent message to "{alias}"')
 
-    finally:
-        close_sock()
+    except Exception as e:
+        print(e)
+
+    close_sock()
 
 main()
