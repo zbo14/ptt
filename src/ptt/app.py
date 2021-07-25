@@ -52,7 +52,7 @@ class App():
         sql = 'SELECT * FROM peers'
 
         for alias, local_port, remote_ip, remote_port in self.db_cursor.execute(sql):
-            peer = Peer(alias, self.public_ip, local_port, remote_ip, remote_port)
+            peer = Peer(alias, self, local_port, remote_ip, remote_port)
             peer.bind_socket()
             self.peers[alias] = peer
 
