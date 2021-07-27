@@ -90,8 +90,12 @@ class App():
             except Exception as e:
                 print(e)
 
+        print(1)
+
         for peer in self.peers.values():
             peer.close()
+
+        print(2)
 
         self.server.close()
         os.remove(self.ipc_server_path)
@@ -99,10 +103,13 @@ class App():
         while True:
             try:
                 msg = self.recvd.get(block=False)
+                print(msg)
                 self.handle_message(msg)
 
             except queue.Empty:
                 break
+
+        print(3)
 
         self.db_conn.close()
 
@@ -188,10 +195,11 @@ class App():
             elif req_type != 'stop':
                 raise Exception(f'Unrecognized message type: "{req_type}"')
 
-            self.send_to_client({
-                'error': None,
-                'data': data
-            })
+            if req_type != 'stop':
+                self.send_to_client({
+                    'error': None,
+                    'data': data
+                })
 
         except Exception as e:
             self.send_to_client({
@@ -289,6 +297,11 @@ class App():
 
 def main():
     app = App()
-    app.run()
+
+    try:
+        app.run()
+
+    except Exception as e:
+        print(e)
 
 main()
