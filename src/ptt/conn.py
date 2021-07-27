@@ -23,7 +23,7 @@ class Conn:
         self.connect_event.clear()
 
         try:
-            self.sock.shutdown()
+            self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
         except Exception:
             pass

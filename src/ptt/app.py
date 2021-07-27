@@ -4,6 +4,7 @@ import queue
 import select
 import socket
 import sqlite3
+import sys
 import threading
 import time
 import urllib.request as request
@@ -96,17 +97,18 @@ class App():
         self.server.close()
         os.remove(self.ipc_server_path)
 
-        done = False
+        done = self.recvd.empty()
 
         while not done:
             try:
-                msg = self.recvd.get(block=False)
+                msg = self.recvd.get(False)
                 self.handle_message(msg)
 
             except queue.Empty:
                 done = True
 
         self.db_conn.close()
+        self.recvd.close()
 
     def handle_message(self, msg):
         alias = msg['peer']
@@ -190,11 +192,10 @@ class App():
             elif req_type != 'stop':
                 raise Exception(f'Unrecognized message type: "{req_type}"')
 
-            if req_type != 'stop':
-                self.send_to_client({
-                    'error': None,
-                    'data': data
-                })
+            self.send_to_client({
+                'error': None,
+                'data': data
+            })
 
         except Exception as e:
             self.send_to_client({
