@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import json
+import pathlib
 import os
 import socket
 import stat
@@ -194,7 +195,6 @@ def main():
                     'data': {'alias': alias}
                 })
 
-                alias = args['alias']
                 content = input(f'Write to {alias}: ')
 
                 request({
@@ -215,7 +215,8 @@ def main():
                 texts = res['data']['texts']
 
                 def format_text(text):
-                    date_str = str(datetime.datetime.fromtimestamp(text['sent_at']))
+                    timestamp = round(text['sent_at'])
+                    date_str = str(datetime.datetime.fromtimestamp(timestamp))
                     preface = f'[{date_str}] '
 
                     if text['from_peer']:
@@ -229,6 +230,35 @@ def main():
                 fmt_texts = [format_text(text) for text in texts]
 
                 print('\n'.join(fmt_texts))
+
+            elif subcmd == 'share-file':
+                alias = args['alias']
+
+                request({
+                    'type': 'is_peer_connected',
+                    'data': {'alias': alias}
+                })
+
+                filepath = None
+
+                while not filepath:
+                    filepath = input(f'Enter path of file to share with {alias}: ')
+
+                filepath = os.path.abspath(filepath)
+
+                if not pathlib.Path(filepath).is_file():
+                    raise Exception(f'No file exists: {filepath}')
+
+                request({
+                    'type': 'share_file',
+
+                    'data': {
+                        'alias': alias,
+                        'filepath': filepath
+                    }
+                })
+
+                print(f'Shared file with {alias}')
 
     except Exception as e:
         print(e)

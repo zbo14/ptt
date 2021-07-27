@@ -95,11 +95,10 @@ class Conn:
                 return
 
             except ConnectionRefusedError:
-                print('Connection refused, waiting and retrying...')
                 time.sleep(1)
 
             except socket.timeout:
-                print('Connection attempt timed out')
+                pass
 
             if sock:
                 sock.close()

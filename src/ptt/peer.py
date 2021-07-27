@@ -116,6 +116,9 @@ class Peer():
 
         self.close()
 
+    def read(self, bufsize):
+        return self.conn.read(bufsize)
+
     def write(self, data):
         return self.conn.write(data)
 

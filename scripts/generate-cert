@@ -2,10 +2,13 @@
 
 cd "$(dirname "$0")"/..
 
-echo "Generating key and self-signed certificate..."
+echo "Making sure directories exist..."
 
-mkdir -p private
+mkdir -p private private/files
+
 cd private
+
+echo "Generating key and self-signed certificate..."
 
 openssl req \
   -x509 \

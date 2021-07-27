@@ -4,7 +4,6 @@ import queue
 import select
 import socket
 import sqlite3
-import sys
 import threading
 import time
 import urllib.request as request
@@ -17,6 +16,7 @@ class App():
     def __init__(
             self,
             db_path=const.DEFAULT_DB_PATH,
+            files_path=const.DEFAULT_FILES_PATH,
             ident_endpoint=const.DEFAULT_IDENT_ENDPOINT,
             ipc_client_path=const.DEFAULT_IPC_CLIENT_PATH,
             ipc_server_path=const.DEFAULT_IPC_SERVER_PATH
@@ -24,8 +24,14 @@ class App():
 
         self.db_conn = sqlite3.connect(db_path)
         self.db_cursor = self.db_conn.cursor()
+        self.db_path = db_path
+
+        self.files_path = files_path
+
         self.ipc_client_path = ipc_client_path
         self.ipc_server_path = ipc_server_path
+
+        self.ident_endpoint = ident_endpoint
         self.public_ip = request.urlopen(ident_endpoint).read().decode('utf8')
 
         self.peers = {}
@@ -59,7 +65,7 @@ class App():
         self.db_cursor.execute(sql)
 
         sql = '''CREATE TABLE IF NOT EXISTS files
-            (peer text, filename text, filesize int, filetype text, sent_at numeric, from_peer bool)'''
+            (peer text, filename text, filepath text, filesize int, shared_at numeric, from_peer bool)'''
 
         self.db_cursor.execute(sql)
         self.db_conn.commit()
@@ -134,7 +140,35 @@ class App():
         self.db_conn.commit()
 
     def handle_file(self, alias, data):
-        print('TODO: handle_file()', alias, data)
+        filename = data['filename']
+        filesize = data['filesize']
+        shared_at = data['shared_at']
+
+        peer = self.get_peer(alias)
+        peer_files_path = os.path.join(self.files_path, alias)
+
+        if not os.path.isdir(peer_files_path):
+            os.mkdir(peer_files_path)
+
+        filepath = os.path.join(peer_files_path, filename)
+
+        with open(filepath, 'w') as file:
+            nread = 0
+
+            while nread < filesize:
+                chunk = peer.read()
+
+                if not chunk:
+                    raise Exception('Connection closed while reading file data')
+
+                file.write(chunk)
+                nread += len(chunk)
+
+        sql = f'''INSERT INTO files VALUES
+            ("{alias}", "{filename}", "{filepath}", {filesize}, {shared_at}, {True})'''
+
+        self.db_cursor.execute(sql)
+        self.db_conn.commit()
 
     def handle_request(self, req):
         if not req:
@@ -188,6 +222,11 @@ class App():
             elif req_type == 'read_texts':
                 alias = req_data['alias']
                 data['texts'] = self.read_texts(alias)
+
+            elif req_type == 'share_file':
+                alias = req_data['alias']
+                filepath = req_data['filepath']
+                self.share_file(alias, filepath)
 
             elif req_type != 'stop':
                 raise Exception(f'Unrecognized message type: "{req_type}"')
@@ -257,6 +296,42 @@ class App():
             'sent_at': row[2],
             'from_peer': bool(row[3])
         } for row in rows]
+
+    def share_file(self, alias, filepath):
+        peer = self.get_peer(alias)
+        filename = os.path.basename(filepath)
+        filesize = os.path.getsize(filepath)
+        shared_at = time.time()
+
+        msg = {
+            'type': 'file',
+
+            'data': {
+                'filename': filename,
+                'filesize': filesize,
+                'sent_at': shared_at
+            }
+        }
+
+        peer.send_message(msg)
+
+        with open(filepath) as file:
+            nread = 0
+
+            while nread < filesize:
+                chunk = file.read(4096)
+
+                if not chunk:
+                    raise Exception('Empty chunk while reading file')
+
+                peer.write(chunk)
+                nread += len(chunk)
+
+        sql = f'''INSERT INTO files VALUES
+            ("{alias}", "{filename}", "{filepath}", {filesize}, {shared_at}, {False})'''
+
+        self.db_cursor.execute(sql)
+        self.db_conn.commit()
 
     def send_to_client(self, msg):
         payload = json.dumps(msg).encode()
