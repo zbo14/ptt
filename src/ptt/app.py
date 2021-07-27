@@ -247,12 +247,12 @@ class App():
         sql = f'SELECT * FROM texts WHERE peer="{alias}" ORDER BY sent_at DESC'
         rows = self.db_cursor.execute(sql).fetchall()
 
-        return map(rows, lambda row: {
+        return map(lambda row: {
             'peer': row[0],
             'content': row[1],
             'sent_at': row[2],
             'from_peer': bool(row[3])
-        })
+        }, rows)
 
     def send_to_client(self, msg):
         payload = json.dumps(msg).encode()
