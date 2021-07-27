@@ -244,7 +244,7 @@ class App():
     def read_texts(self, alias):
         self.get_peer(alias)
 
-        sql = f'SELECT * FROM texts WHERE peer="{alias}" ORDER BY sent_at DESC'
+        sql = f'SELECT * FROM texts WHERE peer="{alias}" ORDER BY sent_at'
         rows = self.db_cursor.execute(sql).fetchall()
 
         return [{
