@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import json
 import os
 import socket
@@ -211,10 +212,23 @@ def main():
                     'data': {'alias': alias}
                 })
 
-                data = res['data']
-                texts = data['texts']
+                texts = res['data']['texts']
 
-                print(texts)
+                def format_text(text):
+                    date_str = str(datetime.datetime.fromtimestamp(text['sent_at']))
+                    preface = f'[{date_str}] '
+
+                    if text['from_peer']:
+                        alias = text['peer']
+                        preface += f'{alias}: '
+                    else:
+                        preface += 'me: '
+
+                    return preface + text['content']
+
+                fmt_texts = map(texts, format_text)
+
+                print('\n'.join(fmt_texts))
 
     except Exception as e:
         print(e)

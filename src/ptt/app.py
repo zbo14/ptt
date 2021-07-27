@@ -53,12 +53,12 @@ class App():
         self.db_cursor.execute(sql)
 
         sql = '''CREATE TABLE IF NOT EXISTS texts
-            (peer text, content text, sent_at int, from_peer bool)'''
+            (peer text, content text, sent_at numeric, from_peer bool)'''
 
         self.db_cursor.execute(sql)
 
         sql = '''CREATE TABLE IF NOT EXISTS files
-            (peer text, filename text, filesize int, filetype text, sent_at int, from_peer bool)'''
+            (peer text, filename text, filesize int, filetype text, sent_at numeric, from_peer bool)'''
 
         self.db_cursor.execute(sql)
         self.db_conn.commit()
@@ -107,7 +107,7 @@ class App():
         self.db_conn.close()
 
     def handle_message(self, msg):
-        alias = msg['from_peer']
+        alias = msg['peer']
         msg_type = msg['type']
         msg_data = msg['data']
 
@@ -223,7 +223,7 @@ class App():
 
     def send_text(self, alias, content):
         peer = self.get_peer(alias)
-        sent_at = int(time.time() * 1e3)
+        sent_at = time.time()
 
         msg = {
             'type': 'text',
@@ -245,8 +245,14 @@ class App():
         self.get_peer(alias)
 
         sql = f'SELECT * FROM texts WHERE peer="{alias}" ORDER BY sent_at DESC'
+        rows = self.db_cursor.execute(sql).fetchall()
 
-        return self.db_cursor.execute(sql).fetchall()
+        return map(rows, lambda row: {
+            'peer': row[0],
+            'content': row[1],
+            'sent_at': row[2],
+            'from_peer': bool(row[3])
+        })
 
     def send_to_client(self, msg):
         payload = json.dumps(msg).encode()

@@ -53,7 +53,7 @@ class Peer():
 
                 try:
                     msg = json.loads(payload.decode())
-                    msg['from_peer'] = self.alias
+                    msg['peer'] = self.alias
                     self.app.recvd.put(msg)
                 except Exception as e:
                     print(e)
