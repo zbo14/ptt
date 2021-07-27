@@ -309,7 +309,7 @@ class App():
             'data': {
                 'filename': filename,
                 'filesize': filesize,
-                'sent_at': shared_at
+                'shared_at': shared_at
             }
         }
 
