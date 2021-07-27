@@ -226,7 +226,7 @@ def main():
 
                     return preface + text['content']
 
-                fmt_texts = map(format_text, texts)
+                fmt_texts = [format_text(text) for text in texts]
 
                 print('\n'.join(fmt_texts))
 
