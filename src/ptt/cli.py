@@ -22,11 +22,14 @@ def main():
     daemon_subparsers.add_parser('restart', add_help=False)
 
     peer_subparsers.add_parser('add', add_help=False)
-    peer_subparsers.add_parser('show', add_help=False)
     peer_subparsers.add_parser('remove', add_help=False)
+    peer_subparsers.add_parser('show', add_help=False)
     peer_subparsers.add_parser('connect', add_help=False)
+    peer_subparsers.add_parser('disconnect', add_help=False)
     peer_subparsers.add_parser('is-connected', add_help=False)
-    peer_subparsers.add_parser('text', add_help=False)
+    peer_subparsers.add_parser('send-text', add_help=False)
+    peer_subparsers.add_parser('read-texts', add_help=False)
+    peer_subparsers.add_parser('share-file', add_help=False)
 
     peer_parser.add_argument('alias', type=str, help='alias of peer')
 
@@ -53,16 +56,11 @@ def main():
         close_sock()
         sys.exit(msg)
 
-    def send_to_server(msg):
-        payload = json.dumps(msg).encode()
+    def request(req):
+        payload = json.dumps(req).encode()
 
         try:
             sock.sendto(payload, const.DEFAULT_IPC_SERVER_PATH)
-        except FileNotFoundError:
-            sys_exit('Daemon not running')
-
-    def recv_from_server():
-        try:
             dgram = sock.recv(4096)
         except FileNotFoundError:
             sys_exit('Daemon not running')
@@ -73,11 +71,6 @@ def main():
             sys_exit(res['error'])
 
         return res
-
-    def request(msg):
-        send_to_server(msg)
-
-        return recv_from_server()
 
     try:
         if cmd == 'daemon':
@@ -98,33 +91,27 @@ def main():
                 print('Started daemon')
 
             elif subcmd == 'restart':
-                msg = {'type': 'stop', 'data': {}}
-
-                request(msg)
+                request({'type': 'stop', 'data': {}})
 
                 subprocess.Popen(['python3', const.APP_PATH])
                 print('Restarted daemon')
 
             elif subcmd == 'stop':
-                msg = {'type': 'stop', 'data': {}}
-
-                request(msg)
+                request({'type': 'stop', 'data': {}})
 
                 print('Stopped daemon')
 
         elif cmd == 'peer':
             if not subcmd:
-                sys_exit('usage: ptt peer {add,remove,show,connect,chat} ...')
+                sys_exit('usage: ptt peer {add,remove,show,connect,is-connected,text} ...')
 
             elif subcmd == 'add':
                 alias = args['alias']
 
-                msg = {
+                res = request({
                     'type': 'reserve_local_port',
                     'data': {'alias': alias}
-                }
-
-                res = request(msg)
+                })
 
                 data = res['data']
                 public_ip = data['public_ip']
@@ -141,7 +128,7 @@ def main():
                 while not remote_port:
                     remote_port = int(input(f'Enter {alias}\'s port: '))
 
-                msg = {
+                request({
                     'type': 'add_peer',
 
                     'data': {
@@ -149,85 +136,85 @@ def main():
                         'remote_ip': remote_ip,
                         'remote_port': remote_port
                     }
-                }
-
-                request(msg)
+                })
 
                 print(f'Added peer: {alias}')
 
             elif subcmd == 'remove':
                 alias = args['alias']
 
-                msg = {
+                request({
                     'type': 'remove_peer',
                     'data': {'alias': alias}
-                }
-
-                request(msg)
+                })
 
                 print(f'Removed peer: {alias}')
 
             elif subcmd == 'show':
                 alias = args['alias']
 
-                msg = {
+                res = request({
                     'type': 'show_peer',
                     'data': {'alias': alias}
-                }
-
-                res = request(msg)
+                })
 
                 data = res['data']
                 local_port = data['local_port']
                 remote_ip = data['remote_ip']
                 remote_port = data['remote_port']
 
-                print(f'Peer "{alias}": local_port={local_port}, remote_ip={remote_ip}, remote_port={remote_port}')
+                print(f'Peer {alias}: local_port={local_port}, remote_ip={remote_ip}, remote_port={remote_port}')
 
             elif subcmd == 'connect':
                 alias = args['alias']
 
-                msg = {
+                request({
                     'type': 'connect_peer',
                     'data': {'alias': alias}
-                }
-
-                request(msg)
+                })
 
                 print(f'Connected to peer: {alias}')
 
             elif subcmd == 'is-connected':
                 alias = args['alias']
 
-                msg = {
+                request({
                     'type': 'is_peer_connected',
                     'data': {'alias': alias}
-                }
+                })
 
-                request(msg)
-                print(f'Peer "{alias}" is connected')
+                print(f'Peer {alias} is connected')
 
-            elif subcmd == 'text':
+            elif subcmd == 'send-text':
                 alias = args['alias']
 
-                msg = {
+                request({
                     'type': 'is_peer_connected',
                     'data': {'alias': alias}
-                }
-
-                request(msg)
+                })
 
                 alias = args['alias']
-                content = input(f'Write to "{alias}": ')
+                content = input(f'Write to {alias}: ')
 
-                msg = {
+                request({
                     'type': 'send_text',
                     'data': {'alias': alias, 'content': content}
-                }
+                })
 
-                request(msg)
+                print(f'Sent message to {alias}')
 
-                print(f'Sent message to "{alias}"')
+            elif subcmd == 'read-texts':
+                alias = args['alias']
+
+                res = request({
+                    'type': 'read_texts',
+                    'data': {'alias': alias}
+                })
+
+                data = res['data']
+                texts = data['texts']
+
+                print(texts)
 
     except Exception as e:
         print(e)

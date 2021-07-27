@@ -37,20 +37,10 @@ class Conn:
         if not isinstance(data, bytes):
             raise Exception('Expected data to be bytes or string')
 
-        try:
-            return self.sock.sendall(data)
-
-        except Exception as e:
-            self.close()
-            raise e
+        return self.sock.sendall(data)
 
     def read(self, bufsize=4096):
-        try:
-            return self.sock.recv(bufsize)
-
-        except Exception as e:
-            self.close()
-            raise e
+        return self.sock.recv(bufsize)
 
     def bind_socket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
