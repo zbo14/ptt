@@ -20,8 +20,8 @@ class PollQueue(queue.SimpleQueue):
         return super().get(*args, **kwargs)
 
     def close(self):
-        self.rsock.shutdown(socket.SHUT_RDWR)
-        self.wsock.shutdown(socket.SHUT_RDWR)
+        self.rsock.shutdown(socket.SHUT_RD)
+        self.wsock.shutdown(socket.SHUT_WR)
 
         self.rsock.close()
         self.wsock.close()

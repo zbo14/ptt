@@ -87,14 +87,10 @@ class Conn:
                 sock = self.bind_socket()
                 sock.connect(self.remote_addr)
 
-                print('established connection')
-
                 self.sock = self.context.wrap_socket(sock=sock, server_side=self.server_side)
                 self.sock.settimeout(None)
 
                 self.connect_event.set()
-
-                print('secured connection')
 
                 return
 
