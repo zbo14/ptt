@@ -90,26 +90,21 @@ class App():
             except Exception as e:
                 print(e)
 
-        print(1)
-
         for peer in self.peers.values():
             peer.close()
-
-        print(2)
 
         self.server.close()
         os.remove(self.ipc_server_path)
 
-        while True:
+        done = False
+
+        while not done:
             try:
                 msg = self.recvd.get(block=False)
-                print(msg)
                 self.handle_message(msg)
 
             except queue.Empty:
-                break
-
-        print(3)
+                done = True
 
         self.db_conn.close()
 
