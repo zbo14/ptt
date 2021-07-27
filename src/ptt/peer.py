@@ -64,6 +64,7 @@ class Peer():
             chunk = self.conn.read()
 
             if not chunk:
+                self.conn.close()
                 break
 
             handle_chunk(chunk)
