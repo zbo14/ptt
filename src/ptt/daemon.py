@@ -12,7 +12,7 @@ import const
 from peer import Peer
 from pollqueue import PollQueue
 
-class App():
+class Daemon:
     def __init__(
             self,
             db_path=const.DEFAULT_DB_PATH,
@@ -387,10 +387,10 @@ class App():
         raise Exception('Failed to find available TCP port')
 
 def main():
-    app = App()
+    daemon = Daemon()
 
     try:
-        app.run()
+        daemon.run()
 
     except Exception as e:
         print(e)

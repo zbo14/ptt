@@ -5,7 +5,7 @@ import sys
 import threading
 import time
 
-class Conn():
+class Conn:
     def __init__(self, public_addr, remote_addr):
         self.public_addr = public_addr
         self.remote_addr = remote_addr

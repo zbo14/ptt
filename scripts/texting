@@ -2,11 +2,10 @@
 
 cd "$(dirname "$0")"/..
 
-ptt peer add foo
-ptt peer connect foo
+ptt peer send-text foo
+ptt peer send-text foo
+ptt peer send-text foo
 
-ptt peer send-text foo
-ptt peer send-text foo
-ptt peer send-text foo
+sleep 10
 
 ptt peer read-texts foo

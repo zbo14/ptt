@@ -7,7 +7,7 @@ import socket
 import stat
 import subprocess
 import sys
-from . import const
+from ptt import const
 
 def run():
     root_parser = argparse.ArgumentParser(prog='ptt')
@@ -283,7 +283,10 @@ def run():
                     filesize = file['filesize']
                     units = 'B'
 
-                    if filesize > 1e6:
+                    if filesize > 1e9:
+                        filesize = round(filesize / 1e9, 1)
+                        units = 'GB'
+                    elif filesize > 1e6:
                         filesize = round(filesize / 1e6, 1)
                         units = 'MB'
                     elif filesize > 1e3:

@@ -2,9 +2,9 @@ import json
 import socket
 import struct
 
-from . import conn
+from ptt import conn
 
-class Peer():
+class Peer:
     def __init__(self, app, alias, local_port=0, remote_ip='', remote_port=0):
         self.app = app
         self.alias = alias
