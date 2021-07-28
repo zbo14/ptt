@@ -2,11 +2,11 @@
 
 cd "$(dirname "$0")"/..
 
-python3 src/ptt/cli.py peer add foo
-python3 src/ptt/cli.py peer connect foo
+ptt peer add foo
+ptt peer connect foo
 
-python3 src/ptt/cli.py peer send-text foo
-python3 src/ptt/cli.py peer send-text foo
-python3 src/ptt/cli.py peer send-text foo
+ptt peer send-text foo
+ptt peer send-text foo
+ptt peer send-text foo
 
-python3 src/ptt/cli.py peer read-texts foo
+ptt peer read-texts foo

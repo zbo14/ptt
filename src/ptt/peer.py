@@ -2,7 +2,7 @@ import json
 import socket
 import struct
 
-from conn import Conn
+from . import conn
 
 class Peer():
     def __init__(self, app, alias, local_port=0, remote_ip='', remote_port=0):
@@ -26,7 +26,7 @@ class Peer():
 
     def connect(self):
         try:
-            self.conn = Conn((self.app.public_ip, self.local_port), (self.remote_ip, self.remote_port))
+            self.conn = conn.Conn((self.app.public_ip, self.local_port), (self.remote_ip, self.remote_port))
             self.conn.connect()
         except Exception as e:
             self.conn = None

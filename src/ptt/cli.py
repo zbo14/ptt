@@ -7,9 +7,9 @@ import socket
 import stat
 import subprocess
 import sys
-import const
+from . import const
 
-def main():
+def run():
     root_parser = argparse.ArgumentParser(prog='ptt')
     root_subparsers = root_parser.add_subparsers()
 
@@ -45,6 +45,9 @@ def main():
         subcmd = sys.argv[2]
     except IndexError:
         subcmd = None
+
+    if not cmd and not subcmd:
+        sys.argv.append('-h')
 
     args = vars(root_parser.parse_args())
 
@@ -90,13 +93,13 @@ def main():
                 except Exception:
                     pass
 
-                subprocess.Popen(['python3', const.APP_PATH])
+                subprocess.Popen(['python3', const.DAEMON_PATH])
                 print('Started daemon')
 
             elif subcmd == 'restart':
                 request({'type': 'stop', 'data': {}})
 
-                subprocess.Popen(['python3', const.APP_PATH])
+                subprocess.Popen(['python3', const.DAEMON_PATH])
                 print('Restarted daemon')
 
             elif subcmd == 'stop':
@@ -302,5 +305,3 @@ def main():
         print(e)
 
     close_sock()
-
-main()

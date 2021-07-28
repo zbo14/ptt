@@ -8,7 +8,7 @@ ROOT_PATH = os.path.abspath(
 
 PRIVATE_PATH = os.path.join(ROOT_PATH, 'private')
 SRC_PATH = os.path.join(ROOT_PATH, 'src', 'ptt')
-APP_PATH = os.path.join(SRC_PATH, 'app.py')
+DAEMON_PATH = os.path.join(SRC_PATH, 'daemon.py')
 
 DEFAULT_DB_PATH = os.path.join(PRIVATE_PATH, 'ptt.db')
 DEFAULT_FILES_PATH = os.path.join(PRIVATE_PATH, 'files')
