@@ -356,12 +356,13 @@ class App():
             peer = Peer(self, alias)
 
             try:
-                peer.create()
                 peer.bind_socket()
+                peer.create()
                 self.peers[alias] = peer
 
                 return peer.local_port
             except Exception as e:
+                peer.close()
                 print(e)
 
         raise Exception('Failed to find available TCP port')

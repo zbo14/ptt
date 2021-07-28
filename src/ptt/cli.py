@@ -119,7 +119,7 @@ def main():
                 public_ip = data['public_ip']
                 local_port = data['local_port']
 
-                print(f'Share with {alias}: public_ip={public_ip}, local port={local_port}')
+                print(f'Share with {alias}: public_ip={public_ip}, local_port={local_port}')
 
                 remote_ip = None
                 remote_port = None
