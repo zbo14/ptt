@@ -25,8 +25,8 @@ class Conn:
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
         self.sock = None
 
@@ -39,8 +39,8 @@ class Conn:
 
         return self.sock.sendall(data)
 
-    def read(self, bufsize=4096):
-        return self.sock.recv(bufsize)
+    def read(self):
+        return self.sock.recv(4096)
 
     def bind_socket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

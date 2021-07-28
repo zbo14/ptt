@@ -261,6 +261,43 @@ def main():
 
                 print(f'Shared file with {alias}')
 
+            elif subcmd == 'list-files':
+                alias = args['alias']
+
+                res = request({
+                    'type': 'list_files',
+                    'data': {'alias': alias}
+                })
+
+                files = res['data']['files']
+
+                def format_file(file):
+                    timestamp = round(file['shared_at'])
+                    date_str = str(datetime.datetime.fromtimestamp(timestamp))
+                    preface = f'[{date_str}] '
+
+                    filepath = file['filepath']
+                    filesize = file['filesize']
+                    units = 'B'
+
+                    if filesize > 1e6:
+                        filesize = round(filesize / 1e6, 1)
+                        units = 'MB'
+                    elif filesize > 1e3:
+                        filesize = round(filesize / 1e3, 1)
+                        units = 'KB'
+
+                    if file['from_peer']:
+                        preface += f'Recv: '
+                    else:
+                        preface += 'Sent: '
+
+                    return preface + f'{filepath} ({filesize}{units})'
+
+                fmt_files = [format_file(file) for file in files]
+
+                print('\n'.join(fmt_files))
+
     except Exception as e:
         print(e)
 

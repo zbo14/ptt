@@ -228,7 +228,7 @@ class App():
                 filepath = req_data['filepath']
                 self.share_file(alias, filepath)
 
-            elif req_type == 'list-files':
+            elif req_type == 'list_files':
                 alias = req_data['alias']
                 data['files'] = self.list_files(alias)
 
@@ -340,7 +340,7 @@ class App():
     def list_files(self, alias):
         self.get_peer(alias)
 
-        sql = f'SELECT * FROM texts WHERE peer="{alias}" ORDER BY shared_at'
+        sql = f'SELECT * FROM files WHERE peer="{alias}" ORDER BY shared_at'
         rows = self.db_cursor.execute(sql).fetchall()
 
         return [{

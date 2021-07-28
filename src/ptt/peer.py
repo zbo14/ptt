@@ -61,7 +61,10 @@ class Peer():
                 handle_chunk()
 
         while self.is_connected():
-            chunk = self.conn.read()
+            try:
+                chunk = self.read()
+            except TimeoutError:
+                continue
 
             if not chunk:
                 self.conn.close()
@@ -116,8 +119,8 @@ class Peer():
 
         self.close()
 
-    def read(self, bufsize=4096):
-        return self.conn.read(bufsize)
+    def read(self):
+        return self.conn.read()
 
     def write(self, data):
         return self.conn.write(data)
