@@ -152,7 +152,7 @@ class App():
 
         filepath = os.path.join(peer_files_path, filename)
 
-        with open(filepath, 'w') as file:
+        with open(filepath, 'wb') as file:
             nread = 0
 
             while nread < filesize:
@@ -227,6 +227,10 @@ class App():
                 alias = req_data['alias']
                 filepath = req_data['filepath']
                 self.share_file(alias, filepath)
+
+            elif req_type == 'list-files':
+                alias = req_data['alias']
+                data['files'] = self.list_files(alias)
 
             elif req_type != 'stop':
                 raise Exception(f'Unrecognized message type: "{req_type}"')
@@ -332,6 +336,21 @@ class App():
 
         self.db_cursor.execute(sql)
         self.db_conn.commit()
+
+    def list_files(self, alias):
+        self.get_peer(alias)
+
+        sql = f'SELECT * FROM texts WHERE peer="{alias}" ORDER BY shared_at'
+        rows = self.db_cursor.execute(sql).fetchall()
+
+        return [{
+            'peer': row[0],
+            'filename': row[1],
+            'filepath': row[2],
+            'filesize': row[3],
+            'shared_at': row[4],
+            'from_peer': bool(row[5])
+        } for row in rows]
 
     def send_to_client(self, msg):
         payload = json.dumps(msg).encode()

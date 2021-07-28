@@ -32,6 +32,7 @@ def main():
     peer_subparsers.add_parser('send-text', add_help=False)
     peer_subparsers.add_parser('read-texts', add_help=False)
     peer_subparsers.add_parser('share-file', add_help=False)
+    peer_subparsers.add_parser('list-files', add_help=False)
 
     peer_parser.add_argument('alias', type=str, help='alias of peer')
 
