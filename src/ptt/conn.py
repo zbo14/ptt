@@ -16,16 +16,7 @@ class Conn:
         if not self.sock:
             return
 
-        try:
-            self.sock.shutdown(socket.SHUT_WR)
-        except Exception:
-            pass
-
-        try:
-            self.sock.close()
-        except Exception:
-            pass
-
+        self.sock.close()
         self.sock = None
 
     def write(self, data):
