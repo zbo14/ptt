@@ -153,16 +153,16 @@ class Daemon:
         filepath = os.path.join(peer_files_path, filename)
 
         with open(filepath, 'wb') as file:
-            nread = 0
+            nread = filesize
 
-            while nread < filesize:
-                chunk = peer.read()
+            while nread > 0:
+                chunk = peer.read(filesize)
 
                 if not chunk:
                     raise Exception('Connection closed while reading file data')
 
                 file.write(chunk)
-                nread += len(chunk)
+                nread -= len(chunk)
 
         sql = f'''INSERT INTO files VALUES
             ("{alias}", "{filename}", "{filepath}", {filesize}, {shared_at}, {True})'''
@@ -332,16 +332,7 @@ class Daemon:
         peer.send_message(msg)
 
         with open(filepath, 'rb') as file:
-            nread = 0
-
-            while nread < filesize:
-                chunk = file.read(1024)
-
-                if not chunk:
-                    raise Exception('Empty chunk while reading file')
-
-                peer.write(chunk)
-                nread += len(chunk)
+            peer.send_file(file)
 
         sql = f'''INSERT INTO files VALUES
             ("{alias}", "{filename}", "{filepath}", {filesize}, {shared_at}, {False})'''

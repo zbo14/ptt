@@ -22,8 +22,11 @@ class Conn:
     def write(self, data):
         return self.sock.sendall(data)
 
-    def read(self):
-        return self.sock.recv(4096)
+    def read(self, bufsize=4096):
+        return self.sock.recv(bufsize)
+
+    def send_file(self, file):
+        return self.sock.sendfile(file)
 
     def bind_socket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -71,7 +74,7 @@ class Conn:
                 sock.connect(self.remote_addr)
 
                 self.sock = self.context.wrap_socket(sock=sock, server_side=self.server_side)
-                self.sock.settimeout(None)
+                self.sock.setblocking(True)
 
                 return
 

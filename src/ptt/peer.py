@@ -69,13 +69,15 @@ class Peer:
                 chunk = self.read()
             except TimeoutError:
                 continue
+            except Exception:
+                break
 
             if not chunk:
-                self.disconnect()
-            else:
-                handle_chunk(chunk)
+                break
 
-        self.conn = None
+            handle_chunk(chunk)
+
+        self.disconnect()
 
     def is_connected(self):
         return self.connect_event.is_set()
@@ -128,8 +130,8 @@ class Peer:
 
         self.close()
 
-    def read(self):
-        return self.conn.read()
+    def read(self, bufsize=4096):
+        return self.conn.read(bufsize)
 
     def write(self, data):
         return self.conn.write(data)
@@ -139,3 +141,6 @@ class Peer:
         header = struct.pack('!I', len(payload))
 
         return self.write(header + payload)
+
+    def send_file(self, file):
+        return self.conn.send_file(file)
