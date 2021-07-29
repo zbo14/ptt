@@ -1,5 +1,4 @@
 import queue
-import os
 import socket
 
 class PollQueue(queue.SimpleQueue):

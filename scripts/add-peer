@@ -1,4 +1,0 @@
-#!/bin/bash
-
-ptt peer remove foo &> /dev/null
-ptt peer add foo

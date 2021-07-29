@@ -180,6 +180,7 @@ class Daemon:
             elif req_type == 'show_peer':
                 alias = req_data['alias']
                 peer = self.get_peer(alias)
+                data['is_connected'] = peer.is_connected()
                 data['local_port'] = peer.local_port
                 data['remote_ip'] = peer.remote_ip
                 data['remote_port'] = peer.remote_port

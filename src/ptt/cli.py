@@ -199,11 +199,12 @@ def run():
                 })
 
                 data = res['data']
+                is_connected = data['is_connected']
                 local_port = data['local_port']
                 remote_ip = data['remote_ip']
                 remote_port = data['remote_port']
 
-                print(f'Peer {alias}: local_port={local_port}, remote_ip={remote_ip}, remote_port={remote_port}')
+                print(f'Peer {alias}: is_connected={is_connected}, local_port={local_port}, remote_ip={remote_ip}, remote_port={remote_port}')
 
             elif subcmd == 'connect':
                 alias = args['alias']
