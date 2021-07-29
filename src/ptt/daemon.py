@@ -335,7 +335,7 @@ class Daemon:
             nread = 0
 
             while nread < filesize:
-                chunk = file.read(4096)
+                chunk = file.read(1024)
 
                 if not chunk:
                     raise Exception('Empty chunk while reading file')

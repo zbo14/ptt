@@ -20,12 +20,6 @@ class Conn:
         self.sock = None
 
     def write(self, data):
-        if isinstance(data, str):
-            data = data.encode('utf8')
-
-        if not isinstance(data, bytes):
-            raise Exception('Expected data to be bytes or string')
-
         return self.sock.sendall(data)
 
     def read(self):

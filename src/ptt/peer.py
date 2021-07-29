@@ -71,10 +71,9 @@ class Peer:
                 continue
 
             if not chunk:
-                self.conn.close()
-                break
-
-            handle_chunk(chunk)
+                self.disconnect()
+            else:
+                handle_chunk(chunk)
 
         self.conn = None
 

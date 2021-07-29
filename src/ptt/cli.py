@@ -1,11 +1,9 @@
 import argparse
 import datetime
 import json
-import pathlib
 import os
 import signal
 import socket
-import stat
 import subprocess
 import sys
 from ptt import const
@@ -23,6 +21,7 @@ def run():
     daemon_subparsers.add_parser('start', add_help=False)
     daemon_subparsers.add_parser('stop', add_help=False)
     daemon_subparsers.add_parser('restart', add_help=False)
+    daemon_subparsers.add_parser('clean', add_help=False)
 
     peer_subparsers.add_parser('add', add_help=False)
     peer_subparsers.add_parser('remove', add_help=False)
@@ -63,17 +62,24 @@ def run():
         close_sock()
         sys.exit(msg)
 
-    signal.signal(signal.SIGINT, lambda x, y: sys_exit("Terminating"))
+    def ensure_daemon_running():
+        if not os.path.isfile(const.PID_PATH):
+            sys_exit('Daemon not running')
+
+    def ensure_peer_connected(alias):
+        request({
+            'type': 'is_peer_connected',
+            'data': {'alias': alias}
+        })
+
+    signal.signal(signal.SIGINT, lambda x, y: sys_exit('Terminating'))
 
     def request(req):
         payload = json.dumps(req).encode()
 
-        try:
-            sock.sendto(payload, const.DEFAULT_IPC_SERVER_PATH)
-            dgram = sock.recv(4096)
-        except FileNotFoundError:
-            sys_exit('Daemon not running')
+        sock.sendto(payload, const.DEFAULT_IPC_SERVER_PATH)
 
+        dgram = sock.recv(4096)
         res = json.loads(dgram.decode())
 
         if 'error' in res and res['error']:
@@ -84,37 +90,62 @@ def run():
     try:
         if cmd == 'daemon':
             if not subcmd:
-                sys_exit('usage: ptt daemon {start,stop,restart} ...')
+                sys_exit('usage: ptt daemon {start,stop,restart,clean} ...')
 
             elif subcmd == 'start':
-                try:
-                    mode = os.stat(const.DEFAULT_IPC_SERVER_PATH).st_mode
+                if os.path.isfile(const.PID_PATH):
+                    sys_exit('Daemon already running')
 
-                    if stat.S_ISSOCK(mode):
-                        sys_exit('Daemon already running')
+                proc = subprocess.Popen(['python3', const.DAEMON_PATH])
 
-                except Exception:
-                    pass
+                with open(const.PID_PATH, 'w+') as file:
+                    file.write(str(proc.pid))
 
-                subprocess.Popen(['python3', const.DAEMON_PATH])
                 print('Started daemon')
 
             elif subcmd == 'restart':
+                ensure_daemon_running()
                 request({'type': 'stop', 'data': {}})
 
                 subprocess.Popen(['python3', const.DAEMON_PATH])
                 print('Restarted daemon')
 
             elif subcmd == 'stop':
+                ensure_daemon_running()
                 request({'type': 'stop', 'data': {}})
+
+                try:
+                    os.remove(const.PID_PATH)
+                except FileNotFoundError:
+                    pass
 
                 print('Stopped daemon')
 
+            elif subcmd == 'clean':
+                try:
+                    with open(const.PID_PATH, 'r') as file:
+                        pid = int(file.readlines().pop(0).strip())
+                        os.kill(pid, signal.SIGTERM)
+                except (FileNotFoundError, ProcessLookupError):
+                    pass
+
+                try:
+                    os.remove(const.PID_PATH)
+                except FileNotFoundError:
+                    pass
+
+                try:
+                    os.remove('/tmp/ptt_server')
+                except FileNotFoundError:
+                    pass
+
         elif cmd == 'peer':
             if not subcmd:
-                sys_exit('usage: ptt peer {add,remove,show,connect,is-connected,text} ...')
+                sys_exit('usage: ptt peer {add,remove,show,connect,disconnect,is-connected,send-text,read-texts,share-file,list-files} ...')
 
-            elif subcmd == 'add':
+            ensure_daemon_running()
+
+            if subcmd == 'add':
                 alias = args['alias']
 
                 res = request({
@@ -196,21 +227,13 @@ def run():
 
             elif subcmd == 'is-connected':
                 alias = args['alias']
-
-                request({
-                    'type': 'is_peer_connected',
-                    'data': {'alias': alias}
-                })
-
+                ensure_peer_connected(alias)
                 print(f'Peer {alias} is connected')
 
             elif subcmd == 'send-text':
                 alias = args['alias']
 
-                request({
-                    'type': 'is_peer_connected',
-                    'data': {'alias': alias}
-                })
+                ensure_peer_connected(alias)
 
                 content = input(f'Write to {alias}: ')
 
@@ -251,10 +274,7 @@ def run():
             elif subcmd == 'share-file':
                 alias = args['alias']
 
-                request({
-                    'type': 'is_peer_connected',
-                    'data': {'alias': alias}
-                })
+                ensure_peer_connected(alias)
 
                 filepath = None
 
@@ -263,7 +283,7 @@ def run():
 
                 filepath = os.path.abspath(filepath)
 
-                if not pathlib.Path(filepath).is_file():
+                if not os.path.isfile(filepath):
                     raise Exception(f'No file exists: {filepath}')
 
                 request({
