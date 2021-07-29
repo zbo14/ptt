@@ -1,6 +1,7 @@
 import json
 import socket
 import struct
+import threading
 
 from ptt import conn
 
@@ -8,6 +9,7 @@ class Peer:
     def __init__(self, app, alias, local_port=0, remote_ip='', remote_port=0):
         self.app = app
         self.alias = alias
+        self.connect_event = threading.Event()
         self.local_port = local_port
         self.remote_ip = remote_ip
         self.remote_port = remote_port
@@ -31,6 +33,8 @@ class Peer:
         except Exception as e:
             self.conn = None
             raise e
+
+        self.connect_event.set()
 
     def run(self):
         data = bytes()
@@ -75,7 +79,7 @@ class Peer:
         self.conn = None
 
     def is_connected(self):
-        return self.conn and self.conn.is_connected()
+        return self.connect_event.is_set()
 
     def add_remote(self, remote_ip, remote_port):
         if self.remote_ip and self.remote_port:
@@ -100,8 +104,11 @@ class Peer:
             self.sock.close()
 
     def disconnect(self):
-        if self.conn:
-            self.conn.close()
+        if not self.is_connected():
+            return
+
+        self.connect_event.clear()
+        self.conn.close()
 
     def create(self):
         sql = f'SELECT 1 FROM peers WHERE local_port="{self.local_port}" LIMIT 1'

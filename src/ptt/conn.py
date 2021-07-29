@@ -1,30 +1,32 @@
 import os
 import socket
 import ssl
-import threading
 import time
 
 class Conn:
     def __init__(self, public_addr, remote_addr):
         self.public_addr = public_addr
         self.remote_addr = remote_addr
-
-        self.connect_event = threading.Event()
         self.sock = None
 
         self.server_side = self.public_addr[0] > self.remote_addr[0]
         self.create_context()
 
-    def is_connected(self):
-        return self.connect_event.is_set()
-
     def close(self):
-        if not self.is_connected():
+        if not self.sock:
             return
 
-        self.connect_event.clear()
-        self.sock.shutdown(socket.SHUT_WR)
-        self.sock.close()
+        try:
+            self.sock.shutdown(socket.SHUT_WR)
+        except Exception:
+            pass
+
+        try:
+            self.sock.close()
+        except Exception:
+            pass
+
+        self.sock = None
 
     def write(self, data):
         if isinstance(data, str):
@@ -85,8 +87,6 @@ class Conn:
 
                 self.sock = self.context.wrap_socket(sock=sock, server_side=self.server_side)
                 self.sock.settimeout(None)
-
-                self.connect_event.set()
 
                 return
 
