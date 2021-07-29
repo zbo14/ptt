@@ -112,7 +112,7 @@ class Peer:
                 chunk = self.recv()
 
                 if not chunk:
-                    raise Exception('Connection closed while reading file from socket')
+                    raise Exception(f'Peer {self.alias}: connection closed while reading file data')
 
                 file.write(chunk)
                 nread += len(chunk)
