@@ -1,4 +1,5 @@
 import json
+import os
 import socket
 import struct
 import threading
@@ -6,8 +7,8 @@ import threading
 from ptt import conn
 
 class Peer:
-    def __init__(self, app, alias, local_port=0, remote_ip='', remote_port=0):
-        self.app = app
+    def __init__(self, daemon, alias, local_port=0, remote_ip='', remote_port=0):
+        self.daemon = daemon
         self.alias = alias
         self.connect_event = threading.Event()
         self.local_port = local_port
@@ -28,7 +29,7 @@ class Peer:
 
     def connect(self):
         try:
-            self.conn = conn.Conn((self.app.public_ip, self.local_port), (self.remote_ip, self.remote_port))
+            self.conn = conn.Conn((self.daemon.public_ip, self.local_port), (self.remote_ip, self.remote_port))
             self.conn.connect()
         except Exception as e:
             self.conn = None
@@ -58,7 +59,11 @@ class Peer:
                 try:
                     msg = json.loads(payload.decode())
                     msg['peer'] = self.alias
-                    self.app.recvd.put(msg)
+
+                    if msg['type'] == 'file':
+                        data = self.handle_file(data, msg['data'])
+
+                    self.daemon.recvd.put(msg)
                 except Exception as e:
                     print(e)
 
@@ -66,10 +71,13 @@ class Peer:
 
         while self.is_connected():
             try:
-                chunk = self.read()
+                chunk = self.recv()
+
             except TimeoutError:
                 continue
-            except Exception:
+
+            except Exception as e:
+                print(e)
                 break
 
             if not chunk:
@@ -82,6 +90,35 @@ class Peer:
     def is_connected(self):
         return self.connect_event.is_set()
 
+    def handle_file(self, data, msg_data):
+        filename = msg_data['filename']
+        filesize = msg_data['filesize']
+
+        peer_files_path = os.path.join(self.daemon.files_path, self.alias)
+
+        if not os.path.isdir(peer_files_path):
+            os.mkdir(peer_files_path)
+
+        msg_data['filepath'] = os.path.join(peer_files_path, filename)
+
+        with open(msg_data['filepath'], 'wb') as file:
+            nread = min(len(data), filesize)
+
+            if nread:
+                file.write(data[:nread])
+                data = data[nread:]
+
+            while nread < filesize:
+                chunk = self.recv()
+
+                if not chunk:
+                    raise Exception('Connection closed while reading file from socket')
+
+                file.write(chunk)
+                nread += len(chunk)
+
+        return data
+
     def add_remote(self, remote_ip, remote_port):
         if self.remote_ip and self.remote_port:
             raise Exception(f'Peer {self.alias} already has remote info')
@@ -92,8 +129,8 @@ class Peer:
             WHERE
                 alias = "{self.alias}"'''
 
-        self.app.db_cursor.execute(sql)
-        self.app.db_conn.commit()
+        self.daemon.db_cursor.execute(sql)
+        self.daemon.db_conn.commit()
 
         self.remote_ip = remote_ip
         self.remote_port = remote_port
@@ -114,33 +151,33 @@ class Peer:
     def create(self):
         sql = f'SELECT 1 FROM peers WHERE local_port="{self.local_port}" LIMIT 1'
 
-        if self.app.db_cursor.execute(sql).fetchone():
+        if self.daemon.db_cursor.execute(sql).fetchone():
             raise Exception(f'Peer "{self.alias}" already created')
 
         sql = f'INSERT INTO peers VALUES ("{self.alias}", {self.local_port}, "", 0)'
 
-        self.app.db_cursor.execute(sql)
-        self.app.db_conn.commit()
+        self.daemon.db_cursor.execute(sql)
+        self.daemon.db_conn.commit()
 
     def delete(self):
         sql = f'DELETE FROM peers WHERE alias="{self.alias}"'
 
-        self.app.db_cursor.execute(sql)
-        self.app.db_conn.commit()
+        self.daemon.db_cursor.execute(sql)
+        self.daemon.db_conn.commit()
 
         self.close()
 
-    def read(self, bufsize=4096):
-        return self.conn.read(bufsize)
+    def recv(self, bufsize=4096):
+        return self.conn.recv(bufsize)
 
-    def write(self, data):
-        return self.conn.write(data)
+    def send(self, data):
+        return self.conn.send(data)
 
-    def send_message(self, msg):
+    def sendmessage(self, msg):
         payload = json.dumps(msg).encode()
         header = struct.pack('!I', len(payload))
 
-        return self.write(header + payload)
+        return self.send(header + payload)
 
-    def send_file(self, file):
-        return self.conn.send_file(file)
+    def sendfile(self, file):
+        return self.conn.sendfile(file)

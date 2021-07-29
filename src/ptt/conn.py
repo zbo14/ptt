@@ -16,16 +16,25 @@ class Conn:
         if not self.sock:
             return
 
-        self.sock.close()
+        try:
+            self.sock.shutdown(socket.SHUT_WR)
+        except Exception:
+            pass
+
+        try:
+            self.sock.close()
+        except Exception:
+            pass
+
         self.sock = None
 
-    def write(self, data):
+    def send(self, data):
         return self.sock.sendall(data)
 
-    def read(self, bufsize=4096):
+    def recv(self, bufsize):
         return self.sock.recv(bufsize)
 
-    def send_file(self, file):
+    def sendfile(self, file):
         return self.sock.sendfile(file)
 
     def bind_socket(self):

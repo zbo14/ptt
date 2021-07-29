@@ -141,28 +141,9 @@ class Daemon:
 
     def handle_file(self, alias, data):
         filename = data['filename']
+        filepath = data['filepath']
         filesize = data['filesize']
         shared_at = data['shared_at']
-
-        peer = self.get_peer(alias)
-        peer_files_path = os.path.join(self.files_path, alias)
-
-        if not os.path.isdir(peer_files_path):
-            os.mkdir(peer_files_path)
-
-        filepath = os.path.join(peer_files_path, filename)
-
-        with open(filepath, 'wb') as file:
-            nread = filesize
-
-            while nread > 0:
-                chunk = peer.read(filesize)
-
-                if not chunk:
-                    raise Exception('Connection closed while reading file data')
-
-                file.write(chunk)
-                nread -= len(chunk)
 
         sql = f'''INSERT INTO files VALUES
             ("{alias}", "{filename}", "{filepath}", {filesize}, {shared_at}, {True})'''
@@ -293,7 +274,7 @@ class Daemon:
             }
         }
 
-        peer.send_message(msg)
+        peer.sendmessage(msg)
 
         sql = f'INSERT INTO texts VALUES ("{alias}", "{content}", {sent_at}, {False})'
 
@@ -329,10 +310,19 @@ class Daemon:
             }
         }
 
-        peer.send_message(msg)
+        peer.sendmessage(msg)
 
         with open(filepath, 'rb') as file:
-            peer.send_file(file)
+            nread = 0
+
+            while nread < filesize:
+                chunk = file.read(4096)
+
+                if not chunk:
+                    raise Exception('Connection closed while reading file from disk')
+
+                peer.send(chunk)
+                nread += len(chunk)
 
         sql = f'''INSERT INTO files VALUES
             ("{alias}", "{filename}", "{filepath}", {filesize}, {shared_at}, {False})'''
