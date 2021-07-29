@@ -207,6 +207,10 @@ class Daemon:
                 alias = req_data['alias']
                 self.connect_peer(alias)
 
+            elif req_type == 'disconnect_peer':
+                alias = req_data['alias']
+                self.disconnect_peer(alias)
+
             elif req_type == 'is_peer_connected':
                 alias = req_data['alias']
                 peer = self.get_peer(alias)
@@ -268,6 +272,14 @@ class Daemon:
         peer.connect()
         threading.Thread(target=peer.run, daemon=True).start()
 
+    def disconnect_peer(self, alias):
+        peer = self.get_peer(alias)
+
+        if not peer.is_connected():
+            raise Exception(f'Peer {alias} is not connected')
+
+        peer.disconnect()
+
     def send_text(self, alias, content):
         peer = self.get_peer(alias)
         sent_at = time.time()
@@ -319,7 +331,7 @@ class Daemon:
 
         peer.send_message(msg)
 
-        with open(filepath) as file:
+        with open(filepath, 'rb') as file:
             nread = 0
 
             while nread < filesize:
@@ -355,7 +367,10 @@ class Daemon:
     def send_to_client(self, msg):
         payload = json.dumps(msg).encode()
 
-        return self.server.sendto(payload, self.ipc_client_path)
+        try:
+            return self.server.sendto(payload, self.ipc_client_path)
+        except FileNotFoundError:
+            pass
 
     def remove_peer(self, alias):
         peer = self.get_peer(alias)

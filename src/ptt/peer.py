@@ -94,11 +94,14 @@ class Peer:
         self.remote_port = remote_port
 
     def close(self):
-        if self.conn:
-            self.conn.close()
+        self.disconnect()
 
         if self.sock:
             self.sock.close()
+
+    def disconnect(self):
+        if self.conn:
+            self.conn.close()
 
     def create(self):
         sql = f'SELECT 1 FROM peers WHERE local_port="{self.local_port}" LIMIT 1'

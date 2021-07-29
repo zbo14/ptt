@@ -3,6 +3,7 @@ import datetime
 import json
 import pathlib
 import os
+import signal
 import socket
 import stat
 import subprocess
@@ -61,6 +62,8 @@ def run():
     def sys_exit(msg):
         close_sock()
         sys.exit(msg)
+
+    signal.signal(signal.SIGINT, lambda x, y: sys_exit("Terminating"))
 
     def request(req):
         payload = json.dumps(req).encode()
@@ -180,6 +183,16 @@ def run():
                 })
 
                 print(f'Connected to peer: {alias}')
+
+            elif subcmd == 'disconnect':
+                alias = args['alias']
+
+                request({
+                    'type': 'disconnect_peer',
+                    'data': {'alias': alias}
+                })
+
+                print(f'Disconnected from peer: {alias}')
 
             elif subcmd == 'is-connected':
                 alias = args['alias']

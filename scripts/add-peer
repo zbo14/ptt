@@ -1,6 +1,4 @@
 #!/bin/bash
 
-cd "$(dirname "$0")"/..
-
 ptt peer remove foo &> /dev/null
 ptt peer add foo

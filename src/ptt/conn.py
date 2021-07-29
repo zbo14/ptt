@@ -1,7 +1,6 @@
 import os
 import socket
 import ssl
-import sys
 import threading
 import time
 
@@ -20,15 +19,12 @@ class Conn:
         return self.connect_event.is_set()
 
     def close(self):
+        if not self.is_connected():
+            return
+
         self.connect_event.clear()
-
-        try:
-            self.sock.shutdown(socket.SHUT_RDWR)
-            self.sock.close()
-        except Exception as e:
-            print(e)
-
-        self.sock = None
+        self.sock.shutdown(socket.SHUT_WR)
+        self.sock.close()
 
     def write(self, data):
         if isinstance(data, str):

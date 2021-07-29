@@ -1,0 +1,3 @@
+#!/bin/bash
+
+ptt peer connect foo
