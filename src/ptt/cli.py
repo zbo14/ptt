@@ -72,14 +72,6 @@ def run():
         })
 
     def handle_interrupt(*_):
-        if cmd == 'peer' and subcmd == 'connect':
-            alias = args['alias']
-
-            request({
-                'type': 'interrupt_connect',
-                'data': {'alias': alias}
-            })
-
         sys_exit('Terminating')
 
     def request(req):
@@ -224,7 +216,7 @@ def run():
                     'data': {'alias': alias}
                 })
 
-                print(f'Connected to peer: {alias}')
+                print(f'Connecting to peer: {alias}')
 
             elif subcmd == 'disconnect':
                 alias = args['alias']

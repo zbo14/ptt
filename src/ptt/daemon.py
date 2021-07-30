@@ -189,10 +189,6 @@ class Daemon:
                 alias = req_data['alias']
                 self.connect_peer(alias)
 
-            elif req_type == 'interrupt_connect':
-                alias = req_data['alias']
-                self.interrupt_connect(alias)
-
             elif req_type == 'disconnect_peer':
                 alias = req_data['alias']
                 self.disconnect_peer(alias)
@@ -255,24 +251,22 @@ class Daemon:
         if peer.is_connected():
             raise Exception(f'Peer {alias} is already connected')
 
-        peer.connect()
+        if peer.is_connecting():
+            raise Exception(f'Peer {alias} is already connecting')
+
         threading.Thread(target=peer.run, daemon=True).start()
-
-    def interrupt_connect(self, alias):
-        peer = self.get_peer(alias)
-
-        if not peer.is_connecting():
-            raise Exception(f'Peer is not connecting')
-
-        peer.stop_connecting()
 
     def disconnect_peer(self, alias):
         peer = self.get_peer(alias)
 
-        if not peer.is_connected():
-            raise Exception(f'Peer {alias} is not connected')
+        if peer.is_connecting():
+            peer.setstate()
 
-        peer.disconnect()
+        elif peer.is_connected():
+            peer.disconnect()
+
+        else:
+            raise Exception(f'Peer {alias} is not connected')
 
     def send_text(self, alias, content):
         peer = self.get_peer(alias)

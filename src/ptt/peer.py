@@ -40,7 +40,7 @@ class Peer:
 
         return state
 
-    def connect(self):
+    def run(self):
         try:
             self.conn = conn.Conn(
                 self,
@@ -49,14 +49,14 @@ class Peer:
             )
 
             self.conn.connect()
-        except Exception as e:
+        except Exception:
             if self.conn:
                 self.conn.close()
 
             self.conn = None
-            raise e
 
-    def run(self):
+            return
+
         data = bytes()
         size = 0
 

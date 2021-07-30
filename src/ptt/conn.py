@@ -51,7 +51,7 @@ class Conn:
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
 
-        sock.setblocking(True)
+        sock.settimeout(10)
 
         sock.bind(('', self.public_addr[1]))
 
@@ -96,8 +96,12 @@ class Conn:
             except ConnectionRefusedError:
                 time.sleep(1)
 
+            except (socket.timeout, TimeoutError):
+                pass
+
             if sock:
                 sock.close()
+                sock = None
 
         self.peer.setstate()
 
