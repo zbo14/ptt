@@ -28,7 +28,6 @@ def run():
     peer_subparsers.add_parser('show', add_help=False)
     peer_subparsers.add_parser('connect', add_help=False)
     peer_subparsers.add_parser('disconnect', add_help=False)
-    peer_subparsers.add_parser('is-connected', add_help=False)
     peer_subparsers.add_parser('send-text', add_help=False)
     peer_subparsers.add_parser('read-texts', add_help=False)
     peer_subparsers.add_parser('share-file', add_help=False)
@@ -72,7 +71,16 @@ def run():
             'data': {'alias': alias}
         })
 
-    signal.signal(signal.SIGINT, lambda x, y: sys_exit('Terminating'))
+    def handle_interrupt(*_):
+        if cmd == 'peer' and subcmd == 'connect':
+            alias = args['alias']
+
+            request({
+                'type': 'interrupt_connect',
+                'data': {'alias': alias}
+            })
+
+        sys_exit('Terminating')
 
     def request(req):
         payload = json.dumps(req).encode()
@@ -86,6 +94,8 @@ def run():
             sys_exit(res['error'])
 
         return res
+
+    signal.signal(signal.SIGINT, handle_interrupt)
 
     try:
         if cmd == 'daemon':
@@ -141,7 +151,7 @@ def run():
 
         elif cmd == 'peer':
             if not subcmd:
-                sys_exit('usage: ptt peer {add,remove,show,connect,disconnect,is-connected,send-text,read-texts,share-file,list-files} ...')
+                sys_exit('usage: ptt peer {add,remove,show,connect,disconnect,send-text,read-texts,share-file,list-files} ...')
 
             ensure_daemon_running()
 
@@ -225,11 +235,6 @@ def run():
                 })
 
                 print(f'Disconnected from peer: {alias}')
-
-            elif subcmd == 'is-connected':
-                alias = args['alias']
-                ensure_peer_connected(alias)
-                print(f'Peer {alias} is connected')
 
             elif subcmd == 'send-text':
                 alias = args['alias']
@@ -328,7 +333,7 @@ def run():
                         units = 'KB'
 
                     if file['from_peer']:
-                        preface += f'Recv: '
+                        preface += 'Recv: '
                     else:
                         preface += 'Sent: '
 

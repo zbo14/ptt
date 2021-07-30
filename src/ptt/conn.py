@@ -4,9 +4,11 @@ import ssl
 import time
 
 class Conn:
-    def __init__(self, public_addr, remote_addr):
+    def __init__(self, peer, public_addr, remote_addr):
+        self.peer = peer
         self.public_addr = public_addr
         self.remote_addr = remote_addr
+
         self.sock = None
 
         self.server_side = self.public_addr[0] > self.remote_addr[0]
@@ -26,6 +28,7 @@ class Conn:
         except Exception:
             pass
 
+        self.peer.setstate()
         self.sock = None
 
     def send(self, data):
@@ -48,7 +51,7 @@ class Conn:
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
 
-        sock.settimeout(3)
+        sock.setblocking(True)
 
         sock.bind(('', self.public_addr[1]))
 
@@ -77,23 +80,25 @@ class Conn:
     def connect(self):
         sock = None
 
-        for _ in range(1, 10):
+        self.peer.setstate('connecting')
+
+        while self.peer.is_connecting():
             try:
                 sock = self.bind_socket()
                 sock.connect(self.remote_addr)
 
                 self.sock = self.context.wrap_socket(sock=sock, server_side=self.server_side)
                 self.sock.setblocking(True)
+                self.peer.setstate('connected')
 
                 return
 
             except ConnectionRefusedError:
                 time.sleep(1)
 
-            except socket.timeout:
-                pass
-
             if sock:
                 sock.close()
+
+        self.peer.setstate()
 
         raise Exception('Failed to connect to peer')

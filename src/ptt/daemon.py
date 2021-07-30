@@ -189,6 +189,10 @@ class Daemon:
                 alias = req_data['alias']
                 self.connect_peer(alias)
 
+            elif req_type == 'interrupt_connect':
+                alias = req_data['alias']
+                self.interrupt_connect(alias)
+
             elif req_type == 'disconnect_peer':
                 alias = req_data['alias']
                 self.disconnect_peer(alias)
@@ -253,6 +257,14 @@ class Daemon:
 
         peer.connect()
         threading.Thread(target=peer.run, daemon=True).start()
+
+    def interrupt_connect(self, alias):
+        peer = self.get_peer(alias)
+
+        if not peer.is_connecting():
+            raise Exception(f'Peer is not connecting')
+
+        peer.stop_connecting()
 
     def disconnect_peer(self, alias):
         peer = self.get_peer(alias)

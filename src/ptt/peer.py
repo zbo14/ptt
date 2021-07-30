@@ -10,10 +10,11 @@ class Peer:
     def __init__(self, daemon, alias, local_port=0, remote_ip='', remote_port=0):
         self.daemon = daemon
         self.alias = alias
-        self.connect_event = threading.Event()
         self.local_port = local_port
         self.remote_ip = remote_ip
         self.remote_port = remote_port
+        self.state = ''
+        self.state_lock = threading.Lock()
 
         self.conn = None
         self.sock = None
@@ -27,15 +28,33 @@ class Peer:
         self.sock.bind(('', self.local_port))
         _, self.local_port = self.sock.getsockname()
 
+    def setstate(self, state=''):
+        self.state_lock.acquire()
+        self.state = state
+        self.state_lock.release()
+
+    def getstate(self):
+        self.state_lock.acquire()
+        state = self.state
+        self.state_lock.release()
+
+        return state
+
     def connect(self):
         try:
-            self.conn = conn.Conn((self.daemon.public_ip, self.local_port), (self.remote_ip, self.remote_port))
+            self.conn = conn.Conn(
+                self,
+                (self.daemon.public_ip, self.local_port),
+                (self.remote_ip, self.remote_port)
+            )
+
             self.conn.connect()
         except Exception as e:
+            if self.conn:
+                self.conn.close()
+
             self.conn = None
             raise e
-
-        self.connect_event.set()
 
     def run(self):
         data = bytes()
@@ -88,7 +107,10 @@ class Peer:
         self.disconnect()
 
     def is_connected(self):
-        return self.connect_event.is_set()
+        return self.getstate() == 'connected'
+
+    def is_connecting(self):
+        return self.getstate() == 'connecting'
 
     def handle_file(self, data, msg_data):
         filename = msg_data['filename']
@@ -142,11 +164,8 @@ class Peer:
             self.sock.close()
 
     def disconnect(self):
-        if not self.is_connected():
-            return
-
-        self.connect_event.clear()
-        self.conn.close()
+        if self.is_connected():
+            self.conn.close()
 
     def create(self):
         sql = f'SELECT 1 FROM peers WHERE local_port="{self.local_port}" LIMIT 1'
