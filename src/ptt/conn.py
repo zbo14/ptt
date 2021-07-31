@@ -94,9 +94,11 @@ class Conn:
                 return
 
             except ConnectionRefusedError:
+                print(1)
                 time.sleep(1)
 
             except (socket.timeout, TimeoutError):
+                print(2)
                 pass
 
             if sock:

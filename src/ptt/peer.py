@@ -40,7 +40,7 @@ class Peer:
 
         return state or 'not connected'
 
-    def run(self):
+    async def run(self):
         try:
             self.conn = conn.Conn(
                 self,
@@ -49,14 +49,17 @@ class Peer:
             )
 
             self.conn.connect()
-            self.daemon.notify(f'Connected: {self.alias}')
-        except Exception:
+        except Exception as e:
             if self.conn:
                 self.conn.close()
 
             self.conn = None
 
+            print(e)
+
             return
+
+        await self.daemon.notify(f'Connected: {self.alias}', '')
 
         data = bytes()
         size = 0
