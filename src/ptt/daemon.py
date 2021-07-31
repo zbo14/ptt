@@ -129,6 +129,9 @@ class Daemon:
         if msg_type == 'connect':
             await self.handle_connect(alias)
 
+        elif msg_type == 'disconnect':
+            await self.handle_disconnect(alias)
+
         elif msg_type == 'text':
             await self.handle_text(alias, msg_data)
 
@@ -140,6 +143,9 @@ class Daemon:
 
     async def handle_connect(self, alias):
         await self.notify(f'Connected: {alias}', '')
+
+    async def handle_disconnect(self, alias):
+        await self.notify(f'Disconnected: {alias}', '')
 
     async def handle_text(self, alias, data):
         content = data['content']

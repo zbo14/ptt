@@ -114,6 +114,12 @@ class Peer:
 
         self.disconnect()
 
+        self.daemon.recvd.put({
+            'type': 'disconnect',
+            'peer': self.alias,
+            'data': {}
+        })
+
     def is_connected(self):
         return self.getstate() == 'connected'
 
