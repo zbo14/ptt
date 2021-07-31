@@ -169,7 +169,7 @@ class Daemon:
         await self.notify(f'File: {alias} ({fmt_size})', filename)
 
     async def notify(self, summary, body):
-        await self.notifier.Notify.show(summary, body)
+        await self.notifier.Notify(summary, body).show()
 
     def handle_request(self, req):
         if not req:
