@@ -49,6 +49,7 @@ class Peer:
             )
 
             self.conn.connect()
+            self.daemon.notify(f'Connected: {self.alias}')
         except Exception:
             if self.conn:
                 self.conn.close()

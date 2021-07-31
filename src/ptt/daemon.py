@@ -143,7 +143,7 @@ class Daemon:
         self.db_cursor.execute(sql)
         self.db_conn.commit()
 
-        await self.notifier.Notify(f'Text: {alias}', content)
+        await self.notify(f'Text: {alias}', content)
 
     async def handle_file(self, alias, data):
         filename = data['filename']
@@ -159,7 +159,10 @@ class Daemon:
 
         fmt_size = common.format_filesize(filesize)
 
-        await self.notifier.Notify(f'File: {alias} ({fmt_size})', filename)
+        await self.notify(f'File: {alias} ({fmt_size})', filename)
+
+    async def notify(self, summary, body):
+        await self.notifier.Notify.show(summary, body)
 
     def handle_request(self, req):
         if not req:
