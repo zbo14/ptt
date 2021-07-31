@@ -96,7 +96,7 @@ class Daemon:
 
                 if self.recvd in can_read:
                     msg = self.recvd.get(block=False)
-                    self.handle_message(msg)
+                    await self.handle_message(msg)
 
             except Exception as e:
                 print(e)
