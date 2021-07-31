@@ -35,10 +35,15 @@ def run():
             if os.path.isfile(const.PID_PATH):
                 client.exit('Daemon already running')
 
-            proc = subprocess.Popen(['python3', const.DAEMON_PATH])
+            with open(const.LOG_PATH, 'w+') as logfile:
+                proc = subprocess.Popen(
+                    ['python3', const.DAEMON_PATH],
+                    stdout=logfile,
+                    stderr=logfile
+                )
 
-            with open(const.PID_PATH, 'w+') as file:
-                file.write(str(proc.pid))
+                with open(const.PID_PATH, 'w+') as pidfile:
+                    pidfile.write(str(proc.pid))
 
             print('Started daemon')
 
@@ -46,7 +51,11 @@ def run():
             client.ensure_daemon_running()
             client.request({'type': 'stop', 'data': {}})
 
-            subprocess.Popen(['python3', const.DAEMON_PATH])
+            proc = subprocess.Popen(['python3', const.DAEMON_PATH])
+
+            with open(const.PID_PATH, 'w+') as file:
+                file.write(str(proc.pid))
+
             print('Restarted daemon')
 
         elif cmd == 'stop':

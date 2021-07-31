@@ -40,7 +40,7 @@ class Peer:
 
         return state or 'not connected'
 
-    async def run(self):
+    def run(self):
         try:
             self.conn = conn.Conn(
                 self,
@@ -59,7 +59,11 @@ class Peer:
 
             return
 
-        await self.daemon.notify(f'Connected: {self.alias}', '')
+        self.daemon.recvd.put({
+            'type': 'connect',
+            'peer': self.alias,
+            'data': {}
+        })
 
         data = bytes()
         size = 0

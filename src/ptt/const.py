@@ -7,6 +7,7 @@ ROOT_PATH = os.path.abspath(
 )
 
 PRIVATE_PATH = os.path.join(ROOT_PATH, 'private')
+LOG_PATH = os.path.join(PRIVATE_PATH, 'daemon.log')
 PID_PATH = os.path.join(PRIVATE_PATH, 'daemon.pid')
 SRC_PATH = os.path.join(ROOT_PATH, 'src', 'ptt')
 DAEMON_PATH = os.path.join(SRC_PATH, 'daemon.py')

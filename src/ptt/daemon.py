@@ -43,6 +43,7 @@ class Daemon:
         self.server.bind(ipc_server_path)
 
         self.notifier = desktop_notify.aio.Server('ptt')
+        self.tasks = []
 
         self.init_db()
         self.init_peers()
@@ -125,7 +126,10 @@ class Daemon:
         msg_type = msg['type']
         msg_data = msg['data']
 
-        if msg_type == 'text':
+        if msg_type == 'connect':
+            await self.handle_connect(alias)
+
+        elif msg_type == 'text':
             await self.handle_text(alias, msg_data)
 
         elif msg_type == 'file':
@@ -133,6 +137,9 @@ class Daemon:
 
         else:
             raise Exception(f'Unexpected message type "{msg_type}" from {alias}')
+
+    async def handle_connect(self, alias):
+        await self.notify(f'Connected: {alias}', '')
 
     async def handle_text(self, alias, data):
         content = data['content']
@@ -267,7 +274,7 @@ class Daemon:
         if peer.is_connecting():
             raise Exception(f'Peer {alias} is already connecting')
 
-        asyncio.create_task(peer.run())
+        threading.Thread(target=peer.run, daemon=True).start()
 
     def disconnect_peer(self, alias):
         peer = self.get_peer(alias)
@@ -401,9 +408,4 @@ async def main():
     except Exception as e:
         print(e)
 
-if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
-
-    pending = asyncio.Task.all_tasks()
-    loop.run_until_complete(asyncio.gather(*pending))
+asyncio.run(main())
