@@ -38,7 +38,7 @@ class Peer:
         state = self.state
         self.state_lock.release()
 
-        return state
+        return state or 'not connected'
 
     def run(self):
         try:

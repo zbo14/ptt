@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import queue
@@ -7,8 +8,9 @@ import sqlite3
 import threading
 import time
 import urllib.request as request
-import const
+import desktop_notify
 
+from ptt import common, const
 from peer import Peer
 from pollqueue import PollQueue
 
@@ -39,6 +41,8 @@ class Daemon:
 
         self.server = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.server.bind(ipc_server_path)
+
+        self.notifier = desktop_notify.aio.Server('ptt')
 
         self.init_db()
         self.init_peers()
@@ -78,7 +82,7 @@ class Daemon:
             peer.bind_socket()
             self.peers[alias] = peer
 
-    def run(self):
+    async def run(self):
         done = False
         rlist = [self.server, self.recvd]
 
@@ -108,7 +112,7 @@ class Daemon:
         while not done:
             try:
                 msg = self.recvd.get(False)
-                self.handle_message(msg)
+                await self.handle_message(msg)
 
             except queue.Empty:
                 done = True
@@ -116,21 +120,21 @@ class Daemon:
         self.db_conn.close()
         self.recvd.close()
 
-    def handle_message(self, msg):
+    async def handle_message(self, msg):
         alias = msg['peer']
         msg_type = msg['type']
         msg_data = msg['data']
 
         if msg_type == 'text':
-            self.handle_text(alias, msg_data)
+            await self.handle_text(alias, msg_data)
 
         elif msg_type == 'file':
-            self.handle_file(alias, msg_data)
+            await self.handle_file(alias, msg_data)
 
         else:
             raise Exception(f'Unexpected message type "{msg_type}" from {alias}')
 
-    def handle_text(self, alias, data):
+    async def handle_text(self, alias, data):
         content = data['content']
         sent_at = data['sent_at']
 
@@ -139,7 +143,9 @@ class Daemon:
         self.db_cursor.execute(sql)
         self.db_conn.commit()
 
-    def handle_file(self, alias, data):
+        await self.notifier.Notify(f'Text: {alias}', content)
+
+    async def handle_file(self, alias, data):
         filename = data['filename']
         filepath = data['filepath']
         filesize = data['filesize']
@@ -150,6 +156,10 @@ class Daemon:
 
         self.db_cursor.execute(sql)
         self.db_conn.commit()
+
+        fmt_size = common.format_filesize(filesize)
+
+        await self.notifier.Notify(f'File: {alias} ({fmt_size})', filename)
 
     def handle_request(self, req):
         if not req:
@@ -180,10 +190,10 @@ class Daemon:
             elif req_type == 'show_peer':
                 alias = req_data['alias']
                 peer = self.get_peer(alias)
-                data['is_connected'] = peer.is_connected()
                 data['local_port'] = peer.local_port
                 data['remote_ip'] = peer.remote_ip
                 data['remote_port'] = peer.remote_port
+                data['state'] = peer.getstate()
 
             elif req_type == 'connect_peer':
                 alias = req_data['alias']
@@ -380,13 +390,12 @@ class Daemon:
 
         raise Exception('Failed to find available TCP port')
 
-def main():
+async def main():
     daemon = Daemon()
 
     try:
-        daemon.run()
-
+        await daemon.run()
     except Exception as e:
         print(e)
 
-main()
+asyncio.run(main())
