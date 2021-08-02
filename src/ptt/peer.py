@@ -18,12 +18,12 @@ class Peer:
         self.conn = None
         self.is_ipv6 = False
         self.local_port = local_port
-        self.remote_addr = None
         self.server_side = False
         self.sock = None
         self.state = ''
         self.state_lock = threading.Lock()
 
+        self.remote_addr = ('', 0)
         self.remote_ip = remote_ip
         self.remote_port = remote_port
 
@@ -159,7 +159,7 @@ class Peer:
 
     @property
     def remote_port(self):
-        return self._remote_port or 0
+        return self._remote_port
 
     @remote_port.setter
     def remote_port(self, remote_port=''):
@@ -172,11 +172,12 @@ class Peer:
         self.daemon.db_conn.commit()
 
         self._remote_port = remote_port
+        self.remote_addr = (self.remote_addr[0], remote_port)
         self.server_side = remote_port > self.local_port
 
     @property
     def remote_ip(self):
-        return self._remote_ip or ''
+        return self._remote_ip
 
     @remote_ip.setter
     def remote_ip(self, remote_ip):
@@ -191,7 +192,7 @@ class Peer:
 
         self._remote_ip = remote_ip
         self.is_ipv6 = ipaddr.version == 6
-        self.remote_addr = (remote_ip, self.remote_port)
+        self.remote_addr = (remote_ip, self.remote_addr[1])
 
     def close(self):
         self.disconnect()
