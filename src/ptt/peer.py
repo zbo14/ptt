@@ -28,7 +28,8 @@ class Peer:
         self.remote_port = remote_port
 
     def bind_socket(self):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        family = socket.AF_INET6 if self.is_ipv6 else socket.AF_INET
+        self.sock = socket.socket(family, socket.SOCK_STREAM)
 
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
@@ -190,7 +191,7 @@ class Peer:
 
         self._remote_ip = remote_ip
         self.is_ipv6 = ipaddr.version == 6
-        self.remote_addr = (remote_ip, self.local_port)
+        self.remote_addr = (remote_ip, self.remote_port)
 
     def close(self):
         self.disconnect()
