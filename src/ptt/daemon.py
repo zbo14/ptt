@@ -7,7 +7,7 @@ import socket
 import sqlite3
 import threading
 import time
-import urllib.request as request
+import urllib
 import desktop_notify
 
 from ptt import common, const
@@ -19,7 +19,8 @@ class Daemon:
             self,
             db_path=const.DEFAULT_DB_PATH,
             files_path=const.DEFAULT_FILES_PATH,
-            ident_endpoint=const.DEFAULT_IDENT_ENDPOINT,
+            ident4_endpoint=const.DEFAULT_IDENT4_ENDPOINT,
+            ident6_endpoint=const.DEFAULT_IDENT6_ENDPOINT,
             ipc_client_path=const.DEFAULT_IPC_CLIENT_PATH,
             ipc_server_path=const.DEFAULT_IPC_SERVER_PATH
         ):
@@ -33,8 +34,12 @@ class Daemon:
         self.ipc_client_path = ipc_client_path
         self.ipc_server_path = ipc_server_path
 
-        self.ident_endpoint = ident_endpoint
-        self.public_ip = request.urlopen(ident_endpoint).read().decode('utf8')
+        self.public_ip4 = urllib.request.urlopen(ident4_endpoint).read().decode('utf8')
+
+        try:
+            self.public_ip6 = urllib.request.urlopen(ident6_endpoint).read().decode('utf8')
+        except urllib.error.URLError:
+            self.public_ip6 = ''
 
         self.peers = {}
         self.recvd = PollQueue()
@@ -191,7 +196,8 @@ class Daemon:
             if req_type == 'reserve_local_port':
                 alias = req_data['alias']
                 data['local_port'] = self.reserve_local_port(alias)
-                data['public_ip'] = self.public_ip
+                data['public_ip4'] = self.public_ip4
+                data['public_ip6'] = self.public_ip6
 
             elif req_type == 'add_peer':
                 alias = req_data['alias']
@@ -262,7 +268,9 @@ class Daemon:
 
     def add_peer(self, alias, remote_ip, remote_port):
         peer = self.get_peer(alias)
-        peer.add_remote(remote_ip, remote_port)
+
+        peer.remote_ip = remote_ip
+        peer.remote_port = remote_port
 
     def get_peer(self, alias):
         try:

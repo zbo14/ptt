@@ -1,3 +1,4 @@
+import ipaddress
 import json
 import os
 import socket
@@ -7,17 +8,24 @@ import threading
 from ptt import conn
 
 class Peer:
-    def __init__(self, daemon, alias, local_port=0, remote_ip='', remote_port=0):
+    def __init__(
+            self, daemon, alias,
+            local_port=0, remote_ip=None, remote_port=0
+    ):
         self.daemon = daemon
+
         self.alias = alias
+        self.conn = None
+        self.is_ipv6 = False
         self.local_port = local_port
-        self.remote_ip = remote_ip
-        self.remote_port = remote_port
+        self.remote_addr = None
+        self.server_side = False
+        self.sock = None
         self.state = ''
         self.state_lock = threading.Lock()
 
-        self.conn = None
-        self.sock = None
+        self.remote_ip = remote_ip
+        self.remote_port = remote_port
 
     def bind_socket(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -42,20 +50,13 @@ class Peer:
 
     def run(self):
         try:
-            self.conn = conn.Conn(
-                self,
-                (self.daemon.public_ip, self.local_port),
-                (self.remote_ip, self.remote_port)
-            )
-
+            self.conn = conn.Conn(self)
             self.conn.connect()
-        except Exception as e:
+        except Exception:
             if self.conn:
                 self.conn.close()
 
             self.conn = None
-
-            print(e)
 
             return
 
@@ -155,21 +156,41 @@ class Peer:
 
         return data
 
-    def add_remote(self, remote_ip, remote_port):
-        if self.remote_ip and self.remote_port:
-            raise Exception(f'Peer {self.alias} already has remote info')
+    @property
+    def remote_port(self):
+        return self._remote_port or 0
 
-        sql = f'''UPDATE peers
-            SET remote_ip = "{remote_ip}",
-                remote_port = "{remote_port}"
-            WHERE
-                alias = "{self.alias}"'''
+    @remote_port.setter
+    def remote_port(self, remote_port=''):
+        if not remote_port:
+            return
+
+        sql = f'UPDATE peers SET remote_port = "{remote_port}" WHERE alias = "{self.alias}"'
 
         self.daemon.db_cursor.execute(sql)
         self.daemon.db_conn.commit()
 
-        self.remote_ip = remote_ip
-        self.remote_port = remote_port
+        self._remote_port = remote_port
+        self.server_side = remote_port > self.local_port
+
+    @property
+    def remote_ip(self):
+        return self._remote_ip or ''
+
+    @remote_ip.setter
+    def remote_ip(self, remote_ip):
+        if not remote_ip:
+            return
+
+        ipaddr = ipaddress.ip_address(remote_ip)
+        sql = f'UPDATE peers SET remote_ip = "{remote_ip}" WHERE alias = "{self.alias}"'
+
+        self.daemon.db_cursor.execute(sql)
+        self.daemon.db_conn.commit()
+
+        self._remote_ip = remote_ip
+        self.is_ipv6 = ipaddr.version == 6
+        self.remote_addr = (remote_ip, self.local_port)
 
     def close(self):
         self.disconnect()

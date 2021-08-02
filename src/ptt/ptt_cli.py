@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import ipaddress
 import os
 import sys
 
@@ -47,16 +48,22 @@ def run():
             })
 
             data = res['data']
-            public_ip = data['public_ip']
+            public_ip4 = data['public_ip4']
+            public_ip6 = data['public_ip6']
             local_port = data['local_port']
 
-            print(f'Share with {alias}: public_ip={public_ip}, local_port={local_port}')
+            print(f'Share with {alias}: public_ip4={public_ip4}, public_ip6={public_ip6}, local_port={local_port}')
 
             remote_ip = None
             remote_port = None
 
             while not remote_ip:
                 remote_ip = input(f'Enter {alias}\'s IP address: ')
+
+            try:
+                ipaddress.ip_address(remote_ip)
+            except ValueError:
+                raise Exception('Invalid IP address')
 
             while not remote_port:
                 remote_port = int(input(f'Enter {alias}\'s port: '))

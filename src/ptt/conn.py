@@ -4,14 +4,10 @@ import ssl
 import time
 
 class Conn:
-    def __init__(self, peer, public_addr, remote_addr):
+    def __init__(self, peer):
         self.peer = peer
-        self.public_addr = public_addr
-        self.remote_addr = remote_addr
-
         self.sock = None
 
-        self.server_side = self.public_addr[0] > self.remote_addr[0]
         self.create_context()
 
     def close(self):
@@ -41,7 +37,8 @@ class Conn:
         return self.sock.sendfile(file)
 
     def bind_socket(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        family = socket.AF_INET6 if self.peer.is_ipv6 else socket.AF_INET
+        sock = socket.socket(family, socket.SOCK_STREAM)
 
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
@@ -53,15 +50,15 @@ class Conn:
 
         sock.settimeout(10)
 
-        sock.bind(('', self.public_addr[1]))
+        sock.bind(('', self.peer.local_port))
 
         return sock
 
     def create_context(self):
-        proto = ssl.PROTOCOL_TLS_SERVER if self.server_side else ssl.PROTOCOL_TLS_CLIENT
+        proto = ssl.PROTOCOL_TLS_SERVER if self.peer.server_side else ssl.PROTOCOL_TLS_CLIENT
         context = ssl.SSLContext(proto)
 
-        if self.server_side:
+        if self.peer.server_side:
             private_dir = os.path.normpath(
                 os.path.join(os.path.dirname(__file__), '..', '..', 'private')
             )
@@ -85,9 +82,10 @@ class Conn:
         while self.peer.is_connecting():
             try:
                 sock = self.bind_socket()
-                sock.connect(self.remote_addr)
+                sock.connect(self.peer.remote_addr)
 
-                self.sock = self.context.wrap_socket(sock=sock, server_side=self.server_side)
+                self.sock = self.context.wrap_socket(sock=sock, server_side=self.peer.server_side)
+
                 self.sock.setblocking(True)
                 self.peer.setstate('connected')
 
