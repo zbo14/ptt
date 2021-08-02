@@ -8,6 +8,7 @@ import sqlite3
 import threading
 import time
 import urllib
+import urllib.request as request
 import desktop_notify
 
 from ptt import common, const
@@ -34,10 +35,10 @@ class Daemon:
         self.ipc_client_path = ipc_client_path
         self.ipc_server_path = ipc_server_path
 
-        self.public_ip4 = urllib.request.urlopen(ident4_endpoint).read().decode('utf8')
+        self.public_ip4 = request.urlopen(ident4_endpoint).read().decode('utf8')
 
         try:
-            self.public_ip6 = urllib.request.urlopen(ident6_endpoint).read().decode('utf8')
+            self.public_ip6 = request.urlopen(ident6_endpoint).read().decode('utf8')
         except urllib.error.URLError:
             self.public_ip6 = ''
 
