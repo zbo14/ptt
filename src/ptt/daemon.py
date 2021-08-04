@@ -154,10 +154,10 @@ class Daemon:
             raise Exception(f'Unexpected message type "{msg_type}" from {alias}')
 
     async def handle_connect(self, alias):
-        await self.notify('ptt', f'Connected: {alias}')
+        await self.notify(f'Peer {alias} connected')
 
     async def handle_disconnect(self, alias):
-        await self.notify('ptt', f'Disconnected: {alias}')
+        await self.notify(f'Peer {alias} disconnected')
 
     async def handle_text(self, alias, data):
         content = data['content']
@@ -165,7 +165,7 @@ class Daemon:
 
         self.db_write(f'INSERT INTO texts VALUES ("{alias}", "{content}", {sent_at}, {True})')
 
-        await self.notify(f'Text: {alias}', content)
+        await self.notify(f'Peer {alias} sent text: {content}')
 
     async def handle_file(self, alias, data):
         filename = data['filename']
@@ -178,10 +178,10 @@ class Daemon:
 
         fmt_size = common.format_filesize(filesize)
 
-        await self.notify(f'File: {alias} ({fmt_size})', filename)
+        await self.notify(f'Peer {alias} sent file: {filename} ({fmt_size})')
 
-    async def notify(self, summary, body):
-        await self.notifier.Notify(summary, body).show()
+    async def notify(self, body):
+        await self.notifier.Notify('ptt', body).show()
 
     def handle_request(self, req):
         if not req:
@@ -211,7 +211,9 @@ class Daemon:
                 if not should_exist and peer is not None:
                     raise Exception(f'Peer {alias} already exists')
 
-                if peer is None:
+                if peer:
+                    peer.disconnect()
+                else:
                     peer = Peer(self, alias)
                     self.peers[alias] = peer
 
@@ -259,20 +261,7 @@ class Daemon:
                 alias = req_data['alias']
                 peer = self.get_peer(alias)
 
-                if peer.is_connecting():
-                    peer.setstate()
-
-                elif peer.is_connected():
-                    peer.disconnect()
-
-                else:
-                    raise Exception(f'Peer {alias} is not connected')
-
-            elif req_type == 'is_peer_connected':
-                alias = req_data['alias']
-                peer = self.get_peer(alias)
-
-                if not peer.is_connected():
+                if not peer.disconnect():
                     raise Exception(f'Peer {alias} isn\'t connected')
 
             elif req_type == 'send_text':
@@ -309,7 +298,7 @@ class Daemon:
 
         except Exception as e:
             self.send_to_client({
-                'data': None,
+                'data': {},
                 'error': str(e)
             })
 

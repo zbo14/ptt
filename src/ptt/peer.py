@@ -26,8 +26,6 @@ class Peer:
         self.state_lock = threading.Lock()
 
     def init(self, is_ipv6=False, new_port=False):
-        is_ipv6 = is_ipv6 or self.is_ipv6
-
         for _ in range(1, 10):
             family = socket.AF_INET6 if is_ipv6 else socket.AF_INET
             sock = socket.socket(family, socket.SOCK_STREAM)
@@ -214,13 +212,19 @@ class Peer:
 
     def close(self):
         self.disconnect()
-
-        if self.sock:
-            self.sock.close()
+        self.sock.close()
 
     def disconnect(self):
-        if self.is_connected():
+        state = self.getstate()
+
+        if state == 'connected':
             self.conn.close()
+        elif state != 'connecting':
+            return False
+
+        self.setstate()
+
+        return True
 
     def delete(self):
         self.daemon.db_write(f'DELETE FROM peers WHERE alias="{self.alias}"')
