@@ -4,6 +4,7 @@ import os
 import socket
 import struct
 import threading
+import time
 
 from ptt import conn
 
@@ -16,26 +17,43 @@ class Peer:
 
         self.alias = alias
         self.conn = None
-        self.is_ipv6 = False
+        self.is_ipv6 = remote_ip and ipaddress.ip_address(remote_ip).version == 6
         self.local_port = local_port
-        self.server_side = False
+        self.remote_ip = remote_ip
+        self.remote_port = remote_port
         self.sock = None
         self.state = ''
         self.state_lock = threading.Lock()
 
-        self.remote_addr = ('', 0)
-        self.remote_ip = remote_ip
-        self.remote_port = remote_port
+    def init(self, is_ipv6=False, new_port=False):
+        is_ipv6 = is_ipv6 or self.is_ipv6
 
-    def bind_socket(self):
-        family = socket.AF_INET6 if self.is_ipv6 else socket.AF_INET
-        self.sock = socket.socket(family, socket.SOCK_STREAM)
+        for _ in range(1, 10):
+            family = socket.AF_INET6 if is_ipv6 else socket.AF_INET
+            sock = socket.socket(family, socket.SOCK_STREAM)
 
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 
-        self.sock.bind(('', self.local_port))
-        _, self.local_port = self.sock.getsockname()
+            try:
+                sock.bind(('', 0 if new_port else self.local_port))
+                local_port = sock.getsockname()[1]
+
+                if not self.local_port:
+                    self.daemon.db_write(f'INSERT INTO peers VALUES ("{self.alias}", {local_port}, "", 0)')
+                    self.local_port = local_port
+                else:
+                    self.edit(local_port=local_port)
+
+                self.is_ipv6 = is_ipv6
+                self.sock = sock
+
+                return local_port
+            except Exception:
+                sock.close()
+                pass
+
+        raise Exception(f'Peer {self.alias}: failed to find available TCP port')
 
     def setstate(self, state=''):
         self.state_lock.acquire()
@@ -122,6 +140,15 @@ class Peer:
             'data': {}
         })
 
+    def server_side(self):
+        if self.remote_port > self.local_port:
+            return True
+
+        elif self.remote_port < self.local_port:
+            return False
+
+        return self.remote_ip > (self.daemon.public_ip6 if self.is_ipv6 else self.daemon.public_ip4)
+
     def is_connected(self):
         return self.getstate() == 'connected'
 
@@ -157,42 +184,28 @@ class Peer:
 
         return data
 
-    @property
-    def remote_port(self):
-        return self._remote_port
+    def edit(self, **kwargs):
+        sql = ' '.join([
+            'UPDATE peers SET',
 
-    @remote_port.setter
-    def remote_port(self, remote_port=''):
-        if not remote_port:
-            return
+            ', '.join([
+                f'{key} = "{val}"' if isinstance(val, str) else f'{key} = {val}'
+                for key, val in kwargs.items() if val
+            ]),
 
-        sql = f'UPDATE peers SET remote_port = "{remote_port}" WHERE alias = "{self.alias}"'
+            f'WHERE alias = "{self.alias}"'
+        ])
 
-        self.daemon.db_cursor.execute(sql)
-        self.daemon.db_conn.commit()
+        self.daemon.db_write(sql)
 
-        self._remote_port = remote_port
-        self.remote_addr = (self.remote_addr[0], remote_port)
-        self.server_side = remote_port > self.local_port
+        if 'local_port' in kwargs and kwargs['local_port']:
+            self.local_port = kwargs['local_port']
 
-    @property
-    def remote_ip(self):
-        return self._remote_ip
+        if 'remote_ip' in kwargs and kwargs['remote_ip']:
+            self.remote_ip = kwargs['remote_ip']
 
-    @remote_ip.setter
-    def remote_ip(self, remote_ip):
-        if not remote_ip:
-            return
-
-        ipaddr = ipaddress.ip_address(remote_ip)
-        sql = f'UPDATE peers SET remote_ip = "{remote_ip}" WHERE alias = "{self.alias}"'
-
-        self.daemon.db_cursor.execute(sql)
-        self.daemon.db_conn.commit()
-
-        self._remote_ip = remote_ip
-        self.is_ipv6 = ipaddr.version == 6
-        self.remote_addr = (remote_ip, self.remote_addr[1])
+        if 'remote_port' in kwargs and kwargs['remote_port']:
+            self.remote_port = kwargs['remote_port']
 
     def close(self):
         self.disconnect()
@@ -204,23 +217,8 @@ class Peer:
         if self.is_connected():
             self.conn.close()
 
-    def create(self):
-        sql = f'SELECT 1 FROM peers WHERE local_port="{self.local_port}" LIMIT 1'
-
-        if self.daemon.db_cursor.execute(sql).fetchone():
-            raise Exception(f'Peer "{self.alias}" already created')
-
-        sql = f'INSERT INTO peers VALUES ("{self.alias}", {self.local_port}, "", 0)'
-
-        self.daemon.db_cursor.execute(sql)
-        self.daemon.db_conn.commit()
-
     def delete(self):
-        sql = f'DELETE FROM peers WHERE alias="{self.alias}"'
-
-        self.daemon.db_cursor.execute(sql)
-        self.daemon.db_conn.commit()
-
+        self.daemon.db_write(f'DELETE FROM peers WHERE alias="{self.alias}"')
         self.close()
 
     def recv(self, bufsize=4096):
@@ -229,11 +227,66 @@ class Peer:
     def send(self, data):
         return self.conn.send(data)
 
-    def sendmessage(self, msg):
-        payload = json.dumps(msg).encode()
+    def sendmessage(self, msg_type, msg_data):
+        payload = json.dumps({'type': msg_type, 'data': msg_data}).encode()
         header = struct.pack('!I', len(payload))
 
         return self.send(header + payload)
 
     def sendfile(self, file):
         return self.conn.sendfile(file)
+
+    def send_text(self, content):
+        sent_at = time.time()
+
+        self.daemon.db_write(
+            f'INSERT INTO texts VALUES ("{self.alias}", "{content}", {sent_at}, {False})'
+        )
+
+        self.sendmessage('text', {
+            'content': content,
+            'sent_at': sent_at
+        })
+
+    def read_texts(self):
+        sql = f'SELECT * FROM texts WHERE peer="{self.alias}" ORDER BY sent_at'
+        rows = self.daemon.db_read(sql).fetchall()
+
+        return [{
+            'peer': row[0],
+            'content': row[1],
+            'sent_at': row[2],
+            'from_peer': bool(row[3])
+        } for row in rows]
+
+    def share_file(self, filepath):
+        filename = os.path.basename(filepath)
+        filesize = os.path.getsize(filepath)
+        shared_at = time.time()
+
+        self.sendmessage('file', {
+            'filename': filename,
+            'filesize': filesize,
+            'shared_at': shared_at
+        })
+
+        with open(filepath, 'rb') as file:
+            self.sendfile(file)
+
+        sql = f'''INSERT INTO files VALUES
+            ("{self.alias}", "{filename}", "{filepath}", {filesize}, {shared_at}, {False})'''
+
+        self.daemon.db_write(sql)
+
+    def list_files(self):
+        sql = f'SELECT * FROM files WHERE peer="{self.alias}" ORDER BY shared_at'
+        rows = self.daemon.db_read(sql).fetchall()
+
+        return [{
+            'peer': row[0],
+            'filename': row[1],
+            'filepath': row[2],
+            'filesize': row[3],
+            'shared_at': row[4],
+            'from_peer': bool(row[5])
+        } for row in rows]

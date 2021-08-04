@@ -55,7 +55,7 @@ class Conn:
         return sock
 
     def create_context(self):
-        proto = ssl.PROTOCOL_TLS_SERVER if self.peer.server_side else ssl.PROTOCOL_TLS_CLIENT
+        proto = ssl.PROTOCOL_TLS_SERVER if self.peer.server_side() else ssl.PROTOCOL_TLS_CLIENT
         context = ssl.SSLContext(proto)
 
         if self.peer.server_side:
@@ -82,7 +82,7 @@ class Conn:
         while self.peer.is_connecting():
             try:
                 sock = self.bind_socket()
-                sock.connect(self.peer.remote_addr)
+                sock.connect(self.peer.remote_addr())
 
                 self.sock = self.context.wrap_socket(sock=sock, server_side=self.peer.server_side)
 

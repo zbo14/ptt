@@ -2,6 +2,7 @@ import argparse
 import datetime
 import ipaddress
 import os
+import signal
 import sys
 
 from ptt import common
@@ -11,6 +12,9 @@ def run():
     subparsers = parser.add_subparsers()
 
     subparsers.add_parser('add', add_help=False)
+    subparsers.add_parser('add6', add_help=False)
+    subparsers.add_parser('edit', add_help=False)
+    subparsers.add_parser('edit6', add_help=False)
     subparsers.add_parser('remove', add_help=False)
     subparsers.add_parser('show', add_help=False)
     subparsers.add_parser('connect', add_help=False)
@@ -33,122 +37,156 @@ def run():
     args = vars(parser.parse_args())
     client = common.Client()
 
+    def handle_interrupt(*_):
+        if cmd in ('add', 'add6'):
+            alias = args['alias']
+            client.remove_peer(alias)
+
+        client.exit('Terminating')
+
+    signal.signal(signal.SIGINT, handle_interrupt)
+
     try:
         if not cmd:
-            client.exit('usage: ptt {add,remove,show,connect,disconnect,send-text,read-texts,share-file,list-files} ...')
+            client.exit('usage: ptt {add,add6,edit,edit6,remove,show,connect,disconnect,send-text,read-texts,share-file,list-files} ...')
 
         client.ensure_daemon_running()
 
         if cmd == 'add':
             alias = args['alias']
+            public_ip4, _, local_port = client.init_peer(alias, new_port=True)
 
-            res = client.request({
-                'type': 'reserve_local_port',
-                'data': {'alias': alias}
-            })
-
-            data = res['data']
-            public_ip4 = data['public_ip4']
-            public_ip6 = data['public_ip6']
-            local_port = data['local_port']
-
-            print(f'Share with {alias}: public_ip4={public_ip4}, public_ip6={public_ip6}, local_port={local_port}')
+            print(f'Share with {alias}: public_ip4={public_ip4}, local_port={local_port}')
 
             remote_ip = None
             remote_port = None
 
             while not remote_ip:
-                remote_ip = input(f'Enter {alias}\'s IP address: ')
+                remote_ip = input(f'Enter {alias}\'s IPv4 address: ').strip()
 
             try:
-                ipaddress.ip_address(remote_ip)
-            except ValueError:
-                raise Exception('Invalid IP address')
+                if ipaddress.ip_address(remote_ip).version != 4:
+                    raise Exception
+            except Exception:
+                raise Exception('Invalid IPv4 address')
 
             while not remote_port:
                 remote_port = int(input(f'Enter {alias}\'s port: '))
 
-            client.request({
-                'type': 'add_peer',
-
-                'data': {
-                    'alias': alias,
-                    'remote_ip': remote_ip,
-                    'remote_port': remote_port
-                }
-            })
+            client.edit_peer(alias, remote_ip, remote_port)
 
             print(f'Added peer: {alias}')
 
+        elif cmd == 'add6':
+            alias = args['alias']
+            _, public_ip6, local_port = client.init_peer(alias, is_ipv6=True, new_port=True)
+
+            print(f'Share with {alias}: public_ip6={public_ip6}, local_port={local_port}')
+
+            remote_ip = None
+            remote_port = None
+
+            while not remote_ip:
+                remote_ip = input(f'Enter {alias}\'s IPv6 address: ').strip()
+
+            try:
+                if ipaddress.ip_address(remote_ip).version != 6:
+                    raise Exception
+            except Exception:
+                raise Exception('Invalid IPv6 address')
+
+            while not remote_port:
+                remote_port = int(input(f'Enter {alias}\'s port: '))
+
+            client.edit_peer(alias, remote_ip, remote_port)
+
+            print(f'Added peer: {alias}')
+
+        elif cmd == 'edit':
+            alias = args['alias']
+            new_port = input('Change local port? [y/N]: ').strip().lower() == 'y'
+
+            public_ip4, _, local_port = client.init_peer(
+                alias, new_port=new_port, should_exist=True
+            )
+
+            print(f'Share with {alias}: public_ip4={public_ip4}, local_port={local_port}')
+
+            remote_ip = input(f'Enter {alias}\'s IPv4 address: ')
+
+            if remote_ip:
+                try:
+                    if ipaddress.ip_address(remote_ip).version != 4:
+                        raise Exception
+                except Exception:
+                    raise Exception('Invalid IPv4 address')
+
+            remote_port = int(input(f'Enter {alias}\'s port: '))
+
+            client.edit_peer(alias, remote_ip, remote_port)
+
+            print(f'Edited peer: {alias}')
+
+        elif cmd == 'edit6':
+            alias = args['alias']
+            new_port = input('Change local port? [y/N]: ').strip().lower() == 'y'
+
+            _, public_ip6, local_port = client.init_peer(
+                alias, is_ipv6=True, new_port=new_port, should_exist=True
+            )
+
+            print(f'Share with {alias}: public_ip6={public_ip6}, local_port={local_port}')
+
+            remote_ip = input(f'Enter {alias}\'s IPv6 address: ')
+
+            if remote_ip:
+                try:
+                    if ipaddress.ip_address(remote_ip).version != 6:
+                        raise Exception
+                except Exception:
+                    raise Exception('Invalid IPv6 address')
+
+            remote_port = int(input(f'Enter {alias}\'s port: '))
+
+            client.edit_peer(alias, remote_ip, remote_port)
+
+            print(f'Edited peer: {alias}')
+
         elif cmd == 'remove':
             alias = args['alias']
-
-            client.request({
-                'type': 'remove_peer',
-                'data': {'alias': alias}
-            })
+            client.remove_peer(alias)
 
             print(f'Removed peer: {alias}')
 
         elif cmd == 'show':
             alias = args['alias']
-
-            res = client.request({
-                'type': 'show_peer',
-                'data': {'alias': alias}
-            })
-
-            data = res['data']
-            local_port = data['local_port']
-            remote_ip = data['remote_ip']
-            remote_port = data['remote_port']
-            state = data['state']
+            _, _, local_port, remote_ip, remote_port, state = client.show_peer(alias)
 
             print(f'Peer {alias}: local_port={local_port}, remote_ip={remote_ip}, remote_port={remote_port}, state="{state}"')
 
         elif cmd == 'connect':
             alias = args['alias']
-
-            client.request({
-                'type': 'connect_peer',
-                'data': {'alias': alias}
-            })
+            client.connect_peer(alias)
 
             print(f'Connecting to peer: {alias}')
 
         elif cmd == 'disconnect':
             alias = args['alias']
-
-            client.request({
-                'type': 'disconnect_peer',
-                'data': {'alias': alias}
-            })
+            client.disconnect_peer(alias)
 
             print(f'Disconnected from peer: {alias}')
 
         elif cmd == 'send-text':
             alias = args['alias']
-
             client.ensure_peer_connected(alias)
-
             content = input(f'Write to {alias}: ')
-
-            client.request({
-                'type': 'send_text',
-                'data': {'alias': alias, 'content': content}
-            })
+            client.send_text(alias, content)
 
             print(f'Sent message to {alias}')
 
         elif cmd == 'read-texts':
             alias = args['alias']
-
-            res = client.request({
-                'type': 'read_texts',
-                'data': {'alias': alias}
-            })
-
-            texts = res['data']['texts']
+            texts = client.read_texts(alias)
 
             def format_text(text):
                 timestamp = round(text['sent_at'])
@@ -163,9 +201,7 @@ def run():
 
                 return preface + text['content']
 
-            fmt_texts = [format_text(text) for text in texts]
-
-            print('\n'.join(fmt_texts))
+            print('\n'.join([format_text(text) for text in texts]))
 
         elif cmd == 'share-file':
             alias = args['alias']
@@ -182,26 +218,13 @@ def run():
             if not os.path.isfile(filepath):
                 raise Exception(f'No file exists: {filepath}')
 
-            client.request({
-                'type': 'share_file',
-
-                'data': {
-                    'alias': alias,
-                    'filepath': filepath
-                }
-            })
+            client.share_file(alias, filepath)
 
             print(f'Shared file with {alias}')
 
         elif cmd == 'list-files':
             alias = args['alias']
-
-            res = client.request({
-                'type': 'list_files',
-                'data': {'alias': alias}
-            })
-
-            files = res['data']['files']
+            files = client.list_files(alias)
 
             def format_file(file):
                 timestamp = round(file['shared_at'])
@@ -219,9 +242,7 @@ def run():
 
                 return preface + f'{filepath} ({fmtsize})'
 
-            fmt_files = [format_file(file) for file in files]
-
-            print('\n'.join(fmt_files))
+            print('\n'.join([format_file(file) for file in files]))
 
     except Exception as e:
         print(e)

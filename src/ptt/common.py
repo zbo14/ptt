@@ -1,7 +1,7 @@
 import json
 import os
-import signal
 import socket
+import subprocess
 import sys
 
 from ptt import const
@@ -26,8 +26,6 @@ class Client:
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.sock.bind(const.DEFAULT_IPC_CLIENT_PATH)
 
-        signal.signal(signal.SIGINT, self.handle_interrupt)
-
     def close(self):
         self.sock.close()
         os.remove(const.DEFAULT_IPC_CLIENT_PATH)
@@ -36,21 +34,26 @@ class Client:
         self.close()
         sys.exit(msg)
 
+    def kill_daemon(self, code):
+        try:
+            with open(const.PID_PATH, 'r') as file:
+                pid = int(file.readlines().pop(0).strip())
+                os.kill(pid, code)
+
+            return True
+
+        except (FileNotFoundError, OSError):
+            return False
+
     def ensure_daemon_running(self):
-        if not os.path.isfile(const.PID_PATH):
-            self.exit('Daemon not running')
+        if not self.kill_daemon(0):
+            raise Exception('Daemon not running')
 
     def ensure_peer_connected(self, alias):
-        self.request({
-            'type': 'is_peer_connected',
-            'data': {'alias': alias}
-        })
+        self.request('is_peer_connected', {'alias': alias})
 
-    def handle_interrupt(self, *_):
-        self.exit('Terminating')
-
-    def request(self, req):
-        payload = json.dumps(req).encode()
+    def request(self, msg_type, msg_data):
+        payload = json.dumps({'type': msg_type, 'data': msg_data}).encode()
 
         self.sock.sendto(payload, const.DEFAULT_IPC_SERVER_PATH)
 
@@ -61,3 +64,95 @@ class Client:
             self.exit(res['error'])
 
         return res
+
+    def init_peer(self, alias, *, is_ipv6=False, new_port=False, should_exist=False):
+        res = self.request('init_peer', {
+            'alias': alias,
+            'is_ipv6': is_ipv6,
+            'new_port': new_port,
+            'should_exist': should_exist
+        })
+
+        data = res['data']
+        public_ip4 = data['public_ip4']
+        public_ip6 = data['public_ip6']
+        local_port = data['local_port']
+
+        return public_ip4, public_ip6, local_port
+
+    def edit_peer(self, alias, remote_ip, remote_port):
+        return self.request('edit_peer', {
+            'alias': alias,
+            'remote_ip': remote_ip,
+            'remote_port': remote_port
+        })
+
+    def remove_peer(self, alias):
+        return self.request('remove_peer', {'alias': alias})
+
+    def show_peer(self, alias):
+        res = self.request('show_peer', {'alias': alias})
+
+        data = res['data']
+        local_port = data['local_port']
+        public_ip4 = data['public_ip4']
+        public_ip6 = data['public_ip6']
+        remote_ip = data['remote_ip']
+        remote_port = data['remote_port']
+        state = data['state']
+
+        return public_ip4, public_ip6, local_port, remote_ip, remote_port, state
+
+    def connect_peer(self, alias):
+        return self.request('connect_peer', {'alias': alias})
+
+    def disconnect_peer(self, alias):
+        return self.request('disconnect_peer', {'alias': alias})
+
+    def send_text(self, alias, content):
+        return self.request('send_text', {
+            'alias': alias,
+            'content': content
+        })
+
+    def read_texts(self, alias):
+        res = self.request('read_texts', {'alias': alias})
+
+        return res['data']['texts']
+
+    def share_file(self, alias, filepath):
+        return self.request('share_file', {
+            'alias': alias,
+            'filepath': filepath
+        })
+
+    def list_files(self, alias):
+        res = self.request('list_files', {'alias': alias})
+
+        return res['data']['files']
+
+    def start_daemon(self):
+        with open(const.LOG_PATH, 'w+') as logfile:
+            with open(const.PID_PATH, 'w+') as pidfile:
+                proc = subprocess.Popen(
+                    ['python3', const.DAEMON_PATH],
+                    stdout=logfile,
+                    stderr=logfile
+                )
+
+                pidfile.write(str(proc.pid))
+
+    def stop_daemon(self):
+        return self.request('stop', {})
+
+    def remove_pidfile(self):
+        try:
+            os.remove(const.PID_PATH)
+        except FileNotFoundError:
+            pass
+
+    def remove_daemon_sock(self):
+        try:
+            os.remove(const.DEFAULT_IPC_SERVER_PATH)
+        except FileNotFoundError:
+            pass

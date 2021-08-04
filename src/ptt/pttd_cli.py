@@ -11,6 +11,7 @@ def run():
     subparsers = parser.add_subparsers()
 
     subparsers.add_parser('start', add_help=False)
+    subparsers.add_parser('status', add_help=False)
     subparsers.add_parser('stop', add_help=False)
     subparsers.add_parser('restart', add_help=False)
     subparsers.add_parser('clean', add_help=False)
@@ -29,63 +30,47 @@ def run():
 
     try:
         if not cmd:
-            client.exit('usage: ptt daemon {start,stop,restart,clean} ...')
+            client.exit('usage: ptt daemon {start,status,stop,restart,clean} ...')
 
         elif cmd == 'start':
-            if os.path.isfile(const.PID_PATH):
-                client.exit('Daemon already running')
+            try:
+                client.ensure_daemon_running()
+                running = True
+            except Exception:
+                running = False
 
-            with open(const.LOG_PATH, 'w+') as logfile:
-                proc = subprocess.Popen(
-                    ['python3', const.DAEMON_PATH],
-                    stdout=logfile,
-                    stderr=logfile
-                )
+            if running:
+                raise Exception('Daemon already running')
 
-                with open(const.PID_PATH, 'w+') as pidfile:
-                    pidfile.write(str(proc.pid))
+            client.start_daemon()
 
             print('Started daemon')
 
+        elif cmd == 'status':
+            try:
+                client.ensure_daemon_running()
+                print('Daemon is running')
+            except Exception:
+                print('Daemon is not running')
+
         elif cmd == 'restart':
             client.ensure_daemon_running()
-            client.request({'type': 'stop', 'data': {}})
-
-            proc = subprocess.Popen(['python3', const.DAEMON_PATH])
-
-            with open(const.PID_PATH, 'w+') as file:
-                file.write(str(proc.pid))
+            client.stop_daemon()
+            client.start_daemon()
 
             print('Restarted daemon')
 
         elif cmd == 'stop':
             client.ensure_daemon_running()
-            client.request({'type': 'stop', 'data': {}})
-
-            try:
-                os.remove(const.PID_PATH)
-            except FileNotFoundError:
-                pass
+            client.stop_daemon()
+            client.remove_pidfile()
 
             print('Stopped daemon')
 
         elif cmd == 'clean':
-            try:
-                with open(const.PID_PATH, 'r') as file:
-                    pid = int(file.readlines().pop(0).strip())
-                    os.kill(pid, signal.SIGTERM)
-            except (FileNotFoundError, ProcessLookupError):
-                pass
-
-            try:
-                os.remove(const.PID_PATH)
-            except FileNotFoundError:
-                pass
-
-            try:
-                os.remove('/tmp/ptt_server')
-            except FileNotFoundError:
-                pass
+            client.kill_daemon(signal.SIGTERM)
+            client.remove_pidfile()
+            client.remove_daemon_sock()
 
     except Exception as e:
         print(e)
