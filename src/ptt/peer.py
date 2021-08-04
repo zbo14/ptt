@@ -71,11 +71,13 @@ class Peer:
         try:
             self.conn = conn.Conn(self)
             self.conn.connect()
-        except Exception:
+        except Exception as e:
             if self.conn:
                 self.conn.close()
 
             self.conn = None
+
+            print(e)
 
             return
 

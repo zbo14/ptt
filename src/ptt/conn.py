@@ -55,10 +55,11 @@ class Conn:
         return sock
 
     def create_context(self):
-        proto = ssl.PROTOCOL_TLS_SERVER if self.peer.server_side() else ssl.PROTOCOL_TLS_CLIENT
+        server_side = self.peer.server_side()
+        proto = ssl.PROTOCOL_TLS_SERVER if server_side else ssl.PROTOCOL_TLS_CLIENT
         context = ssl.SSLContext(proto)
 
-        if self.peer.server_side:
+        if server_side:
             private_dir = os.path.normpath(
                 os.path.join(os.path.dirname(__file__), '..', '..', 'private')
             )
@@ -75,6 +76,7 @@ class Conn:
         self.context = context
 
     def connect(self):
+        server_side = self.peer.server_side()
         sock = None
 
         self.peer.setstate('connecting')
@@ -82,9 +84,10 @@ class Conn:
         while self.peer.is_connecting():
             try:
                 sock = self.bind_socket()
+                print(self.peer.is_ipv6, self.peer.remote_addr())
                 sock.connect(self.peer.remote_addr())
 
-                self.sock = self.context.wrap_socket(sock=sock, server_side=self.peer.server_side)
+                self.sock = self.context.wrap_socket(sock=sock, server_side=server_side)
 
                 self.sock.setblocking(True)
                 self.peer.setstate('connected')
