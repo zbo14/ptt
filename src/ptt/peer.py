@@ -140,6 +140,9 @@ class Peer:
             'data': {}
         })
 
+    def remote_addr(self):
+        return (self.remote_ip, self.remote_port)
+
     def server_side(self):
         if self.remote_port > self.local_port:
             return True
