@@ -1,10 +1,8 @@
 import argparse
-import os
 import signal
-import subprocess
 import sys
 
-from ptt import common, const
+from ptt import common
 
 def run():
     parser = argparse.ArgumentParser(prog='pttd')

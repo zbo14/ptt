@@ -6,7 +6,6 @@ import select
 import socket
 import sqlite3
 import threading
-import time
 import urllib
 import urllib.request as request
 import desktop_notify
