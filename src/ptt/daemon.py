@@ -194,7 +194,16 @@ class Daemon:
         data = {}
 
         try:
-            if req_type == 'init_peer':
+            if req_type == 'peer_exists':
+                alias = req_data['alias']
+
+                try:
+                    self.get_peer(alias)
+                    data['exists'] = True
+                except Exception:
+                    data['exists'] = False
+
+            elif req_type == 'init_peer':
                 alias = req_data['alias']
                 is_ipv6 = req_data['is_ipv6']
                 new_port = req_data['new_port']

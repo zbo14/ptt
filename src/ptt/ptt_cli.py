@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import ipaddress
 import os
 import signal
 import sys
@@ -50,7 +49,7 @@ def run():
         if not cmd:
             client.exit('usage: ptt {add,add6,edit,edit6,remove,show,connect,disconnect,send-text,read-texts,share-file,list-files} ...')
 
-        client.ensure_daemon_running()
+        common.ensure_daemon_running()
 
         if cmd == 'add':
             alias = args['alias']
@@ -58,20 +57,8 @@ def run():
 
             print(f'Share with {alias}: public_ip4={public_ip4}, local_port={local_port}')
 
-            remote_ip = None
-            remote_port = None
-
-            while not remote_ip:
-                remote_ip = input(f'Enter {alias}\'s IPv4 address: ').strip()
-
-            try:
-                if ipaddress.ip_address(remote_ip).version != 4:
-                    raise Exception
-            except Exception:
-                raise Exception('Invalid IPv4 address')
-
-            while not remote_port:
-                remote_port = int(input(f'Enter {alias}\'s port: '))
+            remote_ip = common.prompt_remote_ip(alias, required=True)
+            remote_port = common.prompt_remote_port(alias, required=True)
 
             client.edit_peer(alias, remote_ip, remote_port)
 
@@ -83,20 +70,8 @@ def run():
 
             print(f'Share with {alias}: public_ip6={public_ip6}, local_port={local_port}')
 
-            remote_ip = None
-            remote_port = None
-
-            while not remote_ip:
-                remote_ip = input(f'Enter {alias}\'s IPv6 address: ').strip()
-
-            try:
-                if ipaddress.ip_address(remote_ip).version != 6:
-                    raise Exception
-            except Exception:
-                raise Exception('Invalid IPv6 address')
-
-            while not remote_port:
-                remote_port = int(input(f'Enter {alias}\'s port: '))
+            remote_ip = common.prompt_remote_ip(alias, is_ipv6=True, required=True)
+            remote_port = common.prompt_remote_port(alias, required=True)
 
             client.edit_peer(alias, remote_ip, remote_port)
 
@@ -104,6 +79,9 @@ def run():
 
         elif cmd == 'edit':
             alias = args['alias']
+
+            client.ensure_peer_exists(alias)
+
             new_port = input('Change local port? [y/N]: ').strip().lower() == 'y'
 
             public_ip4, _, local_port = client.init_peer(
@@ -112,16 +90,8 @@ def run():
 
             print(f'Share with {alias}: public_ip4={public_ip4}, local_port={local_port}')
 
-            remote_ip = input(f'Enter {alias}\'s IPv4 address: ')
-
-            if remote_ip:
-                try:
-                    if ipaddress.ip_address(remote_ip).version != 4:
-                        raise Exception
-                except Exception:
-                    raise Exception('Invalid IPv4 address')
-
-            remote_port = int(input(f'Enter {alias}\'s port: '))
+            remote_ip = common.prompt_remote_ip(alias)
+            remote_port = common.prompt_remote_port(alias)
 
             client.edit_peer(alias, remote_ip, remote_port)
 
@@ -129,6 +99,9 @@ def run():
 
         elif cmd == 'edit6':
             alias = args['alias']
+
+            client.ensure_peer_exists(alias)
+
             new_port = input('Change local port? [y/N]: ').strip().lower() == 'y'
 
             _, public_ip6, local_port = client.init_peer(
@@ -137,16 +110,8 @@ def run():
 
             print(f'Share with {alias}: public_ip6={public_ip6}, local_port={local_port}')
 
-            remote_ip = input(f'Enter {alias}\'s IPv6 address: ')
-
-            if remote_ip:
-                try:
-                    if ipaddress.ip_address(remote_ip).version != 6:
-                        raise Exception
-                except Exception:
-                    raise Exception('Invalid IPv6 address')
-
-            remote_port = int(input(f'Enter {alias}\'s port: '))
+            remote_ip = common.prompt_remote_ip(alias, is_ipv6=True)
+            remote_port = common.prompt_remote_port(alias)
 
             client.edit_peer(alias, remote_ip, remote_port)
 

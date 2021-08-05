@@ -1,3 +1,4 @@
+import ipaddress
 import json
 import os
 import socket
@@ -21,6 +22,87 @@ def format_filesize(filesize):
 
     return f'{filesize}{units}'
 
+def ensure_daemon_running():
+    if not kill_daemon(0):
+        raise Exception('Daemon not running')
+
+def start_daemon():
+    with open(const.LOG_PATH, 'w+') as logfile:
+        with open(const.PID_PATH, 'w+') as pidfile:
+            proc = subprocess.Popen(
+                ['python3', const.DAEMON_PATH],
+                stdout=logfile,
+                stderr=logfile
+            )
+
+            pidfile.write(str(proc.pid))
+
+def kill_daemon(code):
+    try:
+        with open(const.PID_PATH, 'r') as file:
+            pid = int(file.readlines().pop(0).strip())
+            os.kill(pid, code)
+
+        return True
+
+    except (FileNotFoundError, OSError):
+        return False
+
+def prompt(prompt, *, required=True):
+    val = input(prompt).strip()
+
+    if required and not val:
+        val = input(prompt).strip()
+
+    return val
+
+def prompt_remote_ip(alias, *, is_ipv6=False, required=False):
+    ipv = 6 if is_ipv6 else 4
+    remote_ip = prompt(f'Enter {alias}\'s IPv{ipv} address: ', required=required)
+
+    if not remote_ip:
+        return None
+
+    try:
+        if ipaddress.ip_address(remote_ip).version != ipv:
+            raise Exception
+    except Exception:
+        raise Exception(f'Invalid IPv{ipv} address')
+
+    return remote_ip
+
+def prompt_remote_port(alias, *, required=False):
+    remote_port = prompt(f'Enter {alias}\'s port: ', required=required)
+
+    try:
+        remote_port = int(remote_port)
+
+        if not 0 < remote_port < 65536:
+            raise Exception
+
+        return remote_port
+    except Exception:
+        raise Exception('Invalid port number')
+
+
+def remove_pidfile():
+    try:
+        os.remove(const.PID_PATH)
+    except FileNotFoundError:
+        pass
+
+def remove_server_sock():
+    try:
+        os.remove(const.DEFAULT_IPC_SERVER_PATH)
+    except FileNotFoundError:
+        pass
+
+def remove_client_sock():
+    try:
+        os.remove(const.DEFAULT_IPC_SERVER_PATH)
+    except FileNotFoundError:
+        pass
+
 class Client:
     def __init__(self):
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
@@ -34,23 +116,15 @@ class Client:
         self.close()
         sys.exit(msg)
 
-    def kill_daemon(self, code):
-        try:
-            with open(const.PID_PATH, 'r') as file:
-                pid = int(file.readlines().pop(0).strip())
-                os.kill(pid, code)
-
-            return True
-
-        except (FileNotFoundError, OSError):
-            return False
-
-    def ensure_daemon_running(self):
-        if not self.kill_daemon(0):
-            raise Exception('Daemon not running')
-
     def ensure_peer_connected(self, alias):
-        self.request('is_peer_connected', {'alias': alias})
+        if not list(self.show_peer(alias)).pop() == 'connected':
+            raise Exception(f'Peer {alias} isn\'t connected')
+
+    def ensure_peer_exists(self, alias):
+        res = self.request('peer_exists', {'alias': alias})
+
+        if not res['data']['exists']:
+            raise Exception(f'Peer {alias} doesn\'t exist')
 
     def request(self, msg_type, msg_data):
         payload = json.dumps({'type': msg_type, 'data': msg_data}).encode()
@@ -131,28 +205,5 @@ class Client:
 
         return res['data']['files']
 
-    def start_daemon(self):
-        with open(const.LOG_PATH, 'w+') as logfile:
-            with open(const.PID_PATH, 'w+') as pidfile:
-                proc = subprocess.Popen(
-                    ['python3', const.DAEMON_PATH],
-                    stdout=logfile,
-                    stderr=logfile
-                )
-
-                pidfile.write(str(proc.pid))
-
     def stop_daemon(self):
         return self.request('stop', {})
-
-    def remove_pidfile(self):
-        try:
-            os.remove(const.PID_PATH)
-        except FileNotFoundError:
-            pass
-
-    def remove_daemon_sock(self):
-        try:
-            os.remove(const.DEFAULT_IPC_SERVER_PATH)
-        except FileNotFoundError:
-            pass

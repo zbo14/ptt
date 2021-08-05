@@ -32,7 +32,7 @@ def run():
 
         elif cmd == 'start':
             try:
-                client.ensure_daemon_running()
+                common.ensure_daemon_running()
                 running = True
             except Exception:
                 running = False
@@ -40,35 +40,36 @@ def run():
             if running:
                 raise Exception('Daemon already running')
 
-            client.start_daemon()
+            common.start_daemon()
 
             print('Started daemon')
 
         elif cmd == 'status':
             try:
-                client.ensure_daemon_running()
+                common.ensure_daemon_running()
                 print('Daemon is running')
             except Exception:
                 print('Daemon is not running')
 
         elif cmd == 'restart':
-            client.ensure_daemon_running()
+            common.ensure_daemon_running()
             client.stop_daemon()
-            client.start_daemon()
+            common.start_daemon()
 
             print('Restarted daemon')
 
         elif cmd == 'stop':
-            client.ensure_daemon_running()
+            common.ensure_daemon_running()
             client.stop_daemon()
-            client.remove_pidfile()
+            common.remove_pidfile()
 
             print('Stopped daemon')
 
         elif cmd == 'clean':
-            client.kill_daemon(signal.SIGTERM)
-            client.remove_pidfile()
-            client.remove_daemon_sock()
+            common.kill_daemon(signal.SIGTERM)
+            common.remove_pidfile()
+            common.remove_client_sock()
+            common.remove_server_sock()
 
     except Exception as e:
         print(e)
