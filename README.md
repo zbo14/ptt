@@ -26,9 +26,11 @@ CLI for controlling the daemon, which listens on an IPC socket for `ptt` command
 
 **Note:** the daemon *must* be running for `ptt` commands to work!
 
-#### `pttd start`
+#### `pttd start [-c, --connect]`
 
-Start the daemon in another process.
+Start the daemon in a separate process.
+
+The `-c` or `--connect` flag instructs the daemon to attempt connecting to each known peer on start-up.
 
 #### `pttd status`
 
@@ -38,13 +40,13 @@ Reports whether daemon is running or not.
 
 Stop the daemon gracefully.
 
-#### `pttd restart`
+#### `pttd restart [-c, --connect]`
 
-Restart the daemon.
+Restart the daemon. The `-c` or `--connect` flag is the same as in the `start` command.
 
 #### `pttd clean`
 
-Sometimes, the daemon gets in a weird state where it doesn't respond to other other. This command attempts to terminate the daemon process and remove lingering files.
+Sometimes in development, the daemon gets in a weird state where it doesn't respond to other commands. This command terminates the daemon process and removes any lingering files. A subsequent `pttd start` should successfully start the daemon.
 
 ### `ptt`
 
