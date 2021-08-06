@@ -84,7 +84,6 @@ class Conn:
         while self.peer.is_connecting():
             try:
                 sock = self.bind_socket()
-                print(self.peer.is_ipv6, self.peer.remote_addr())
                 sock.connect(self.peer.remote_addr())
                 self.sock = self.context.wrap_socket(sock=sock, server_side=server_side)
 

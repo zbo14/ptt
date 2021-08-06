@@ -59,6 +59,7 @@ def run():
         elif cmd == 'restart':
             common.ensure_daemon_running()
             client.stop_daemon()
+            common.remove_server_sock()
             common.start_daemon(args['connect'])
 
             print('Restarted daemon')
@@ -67,7 +68,6 @@ def run():
             common.ensure_daemon_running()
             client.stop_daemon()
             common.remove_pidfile()
-            common.remove_client_sock()
             common.remove_server_sock()
 
             print('Stopped daemon')
