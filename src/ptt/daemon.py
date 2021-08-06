@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 import queue
 import select
 import socket
@@ -124,7 +123,6 @@ class Daemon:
             peer.close()
 
         self.server.close()
-        os.remove(self.ipc_server_path)
 
         done = self.recvd.empty()
 

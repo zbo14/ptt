@@ -70,11 +70,7 @@ class Peer:
             self.conn = conn.Conn(self)
             self.conn.connect()
         except Exception as e:
-            if self.conn:
-                self.conn.close()
-
-            self.conn = None
-
+            self.disconnect()
             print(e)
 
             return
@@ -215,19 +211,24 @@ class Peer:
 
     def close(self):
         self.disconnect()
-        self.sock.close()
+
+        if self.sock:
+            self.sock.close()
+            self.sock = None
 
     def disconnect(self):
-        state = self.getstate()
+        self.state_lock.acquire()
 
-        if state == 'connected':
+        state = self.state
+        self.state = ''
+
+        if self.conn:
             self.conn.close()
-        elif state != 'connecting':
-            return False
+            self.conn = None
 
-        self.setstate()
+        self.state_lock.release()
 
-        return True
+        return state in ('connected', 'connecting')
 
     def delete(self):
         self.daemon.db_write(f'DELETE FROM peers WHERE alias="{self.alias}"')

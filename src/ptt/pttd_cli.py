@@ -67,6 +67,8 @@ def run():
             common.ensure_daemon_running()
             client.stop_daemon()
             common.remove_pidfile()
+            common.remove_client_sock()
+            common.remove_server_sock()
 
             print('Stopped daemon')
 
