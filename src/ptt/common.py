@@ -107,7 +107,7 @@ def remove_server_sock():
 
 def remove_client_sock():
     try:
-        os.remove(const.DEFAULT_IPC_SERVER_PATH)
+        os.remove(const.DEFAULT_IPC_CLIENT_PATH)
     except FileNotFoundError:
         pass
 

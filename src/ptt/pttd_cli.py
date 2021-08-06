@@ -29,6 +29,14 @@ def run():
 
     args = vars(parser.parse_args())
 
+    if cmd == 'clean':
+        common.kill_daemon(signal.SIGTERM)
+        common.remove_pidfile()
+        common.remove_client_sock()
+        common.remove_server_sock()
+
+        return
+
     client = common.Client()
 
     try:
@@ -71,12 +79,6 @@ def run():
             common.remove_server_sock()
 
             print('Stopped daemon')
-
-        elif cmd == 'clean':
-            common.kill_daemon(signal.SIGTERM)
-            common.remove_pidfile()
-            common.remove_client_sock()
-            common.remove_server_sock()
 
     except Exception as e:
         print(e)
