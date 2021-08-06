@@ -5,6 +5,7 @@ import queue
 import select
 import socket
 import sqlite3
+import sys
 import threading
 import urllib
 import urllib.request as request
@@ -17,6 +18,8 @@ from pollqueue import PollQueue
 class Daemon:
     def __init__(
             self,
+            *,
+            connect_peers=False,
             db_path=const.DEFAULT_DB_PATH,
             files_path=const.DEFAULT_FILES_PATH,
             ident4_endpoint=const.DEFAULT_IDENT4_ENDPOINT,
@@ -52,7 +55,7 @@ class Daemon:
         self.tasks = []
 
         self.init_db()
-        self.init_peers()
+        self.init_peers(connect_peers)
 
     def init_db(self):
         self.db_write('''CREATE TABLE IF NOT EXISTS peers
@@ -72,13 +75,17 @@ class Daemon:
 
         self.db_commit()
 
-    def init_peers(self):
+    def init_peers(self, connect_peers):
         sql = 'SELECT * FROM peers'
 
         for alias, local_port, remote_ip, remote_port in self.db_cursor.execute(sql):
             peer = Peer(self, alias, local_port, remote_ip, remote_port)
             peer.init()
             self.peers[alias] = peer
+
+            if connect_peers:
+                print('connecting ' + alias)
+                threading.Thread(target=peer.run, daemon=True).start()
 
     def db_read(self, sql):
         return self.db_cursor.execute(sql)
@@ -349,7 +356,8 @@ class Daemon:
             pass
 
 async def main():
-    daemon = Daemon()
+    connect_peers = 'connect' in sys.argv[1:]
+    daemon = Daemon(connect_peers=connect_peers)
 
     try:
         await daemon.run()

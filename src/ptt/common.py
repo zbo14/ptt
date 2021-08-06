@@ -26,11 +26,16 @@ def ensure_daemon_running():
     if not kill_daemon(0):
         raise Exception('Daemon not running')
 
-def start_daemon():
+def start_daemon(connect):
     with open(const.LOG_PATH, 'w+') as logfile:
         with open(const.PID_PATH, 'w+') as pidfile:
+            cmd_parts = ['python3', const.DAEMON_PATH]
+
+            if connect:
+                cmd_parts.append('connect')
+
             proc = subprocess.Popen(
-                ['python3', const.DAEMON_PATH],
+                cmd_parts,
                 stdout=logfile,
                 stderr=logfile
             )

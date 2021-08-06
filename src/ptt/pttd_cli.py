@@ -8,11 +8,16 @@ def run():
     parser = argparse.ArgumentParser(prog='pttd')
     subparsers = parser.add_subparsers()
 
-    subparsers.add_parser('start', add_help=False)
-    subparsers.add_parser('status', add_help=False)
-    subparsers.add_parser('stop', add_help=False)
-    subparsers.add_parser('restart', add_help=False)
-    subparsers.add_parser('clean', add_help=False)
+    start_parser = subparsers.add_parser('start')
+    start_parser.add_argument('-c', '--connect', default=False, action=argparse.BooleanOptionalAction)
+
+    subparsers.add_parser('status')
+    subparsers.add_parser('stop')
+
+    restart_parser = subparsers.add_parser('restart')
+    restart_parser.add_argument('-c', '--connect', default=False, action=argparse.BooleanOptionalAction)
+
+    subparsers.add_parser('clean')
 
     try:
         cmd = sys.argv[1]
@@ -22,7 +27,7 @@ def run():
     if not cmd:
         sys.argv.append('-h')
 
-    parser.parse_args()
+    args = vars(parser.parse_args())
 
     client = common.Client()
 
@@ -40,7 +45,7 @@ def run():
             if running:
                 raise Exception('Daemon already running')
 
-            common.start_daemon()
+            common.start_daemon(args['connect'])
 
             print('Started daemon')
 
@@ -54,7 +59,7 @@ def run():
         elif cmd == 'restart':
             common.ensure_daemon_running()
             client.stop_daemon()
-            common.start_daemon()
+            common.start_daemon(args['connect'])
 
             print('Restarted daemon')
 
