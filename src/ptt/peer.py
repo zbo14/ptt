@@ -213,20 +213,25 @@ class Peer:
         self.disconnect()
 
         if self.sock:
-            self.sock.close()
+            try:
+                self.sock.close()
+            except Exception:
+                pass
+
             self.sock = None
 
     def disconnect(self):
-        self.state_lock.acquire()
-
-        state = self.state
-        self.state = ''
-
         if self.conn:
-            self.conn.close()
+            try:
+                self.conn.close()
+            except Exception:
+                pass
+
             self.conn = None
 
-        self.state_lock.release()
+        state = self.getstate()
+
+        self.setstate()
 
         return state in ('connected', 'connecting')
 
