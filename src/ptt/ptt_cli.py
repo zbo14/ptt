@@ -36,11 +36,13 @@ def run():
     args = vars(parser.parse_args())
     client = common.Client()
 
-    def handle_interrupt(*_):
+    def remove_peer():
         if cmd in ('add', 'add6'):
             alias = args['alias']
             client.remove_peer(alias)
 
+    def handle_interrupt(*_):
+        remove_peer()
         client.exit('Terminating')
 
     signal.signal(signal.SIGINT, handle_interrupt)
@@ -60,7 +62,7 @@ def run():
             remote_ip = common.prompt_remote_ip(alias, required=True)
             remote_port = common.prompt_remote_port(alias, required=True)
 
-            client.edit_peer(alias, remote_ip, remote_port)
+            client.edit_peer(alias, '', remote_ip, remote_port)
 
             print(f'Added peer: {alias}')
 
@@ -73,7 +75,7 @@ def run():
             remote_ip = common.prompt_remote_ip(alias, is_ipv6=True, required=True)
             remote_port = common.prompt_remote_port(alias, required=True)
 
-            client.edit_peer(alias, remote_ip, remote_port)
+            client.edit_peer(alias, '', remote_ip, remote_port)
 
             print(f'Added peer: {alias}')
 
@@ -90,12 +92,13 @@ def run():
 
             print(f'Share with {alias}: public_ip4={public_ip4}, local_port={local_port}')
 
+            new_alias = input('New alias: ').strip()
             remote_ip = common.prompt_remote_ip(alias)
             remote_port = common.prompt_remote_port(alias)
 
-            client.edit_peer(alias, remote_ip, remote_port)
+            client.edit_peer(alias, new_alias, remote_ip, remote_port)
 
-            print(f'Edited peer: {alias}')
+            print(f'Edited peer: {new_alias or alias}')
 
         elif cmd == 'edit6':
             alias = args['alias']
@@ -110,12 +113,13 @@ def run():
 
             print(f'Share with {alias}: public_ip6={public_ip6}, local_port={local_port}')
 
+            new_alias = input('New alias: ').strip()
             remote_ip = common.prompt_remote_ip(alias, is_ipv6=True)
             remote_port = common.prompt_remote_port(alias)
 
-            client.edit_peer(alias, remote_ip, remote_port)
+            client.edit_peer(alias, new_alias, remote_ip, remote_port)
 
-            print(f'Edited peer: {alias}')
+            print(f'Edited peer: {new_alias or alias}')
 
         elif cmd == 'remove':
             alias = args['alias']
@@ -210,6 +214,7 @@ def run():
             print('\n'.join([format_file(file) for file in files]))
 
     except Exception as e:
+        remove_peer()
         print(e)
 
     client.close()

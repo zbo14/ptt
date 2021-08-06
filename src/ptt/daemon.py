@@ -232,11 +232,31 @@ class Daemon:
 
             elif req_type == 'edit_peer':
                 alias = req_data['alias']
+                new_alias = req_data['new_alias']
                 remote_ip = req_data['remote_ip']
                 remote_port = req_data['remote_port']
 
                 peer = self.get_peer(alias)
-                peer.edit(remote_ip=remote_ip, remote_port=remote_port)
+
+                if new_alias:
+                    try:
+                        self.get_peer(new_alias)
+                        exists = True
+                    except Exception:
+                        exists = False
+
+                    if exists:
+                        raise Exception(f'Peer {new_alias} already exists')
+
+                peer.edit(
+                    alias=new_alias,
+                    remote_ip=remote_ip,
+                    remote_port=remote_port
+                )
+
+                if new_alias:
+                    self.peers[new_alias] = peer
+                    del self.peers[alias]
 
             elif req_type == 'remove_peer':
                 alias = req_data['alias']

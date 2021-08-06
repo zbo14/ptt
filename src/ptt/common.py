@@ -74,6 +74,9 @@ def prompt_remote_ip(alias, *, is_ipv6=False, required=False):
 def prompt_remote_port(alias, *, required=False):
     remote_port = prompt(f'Enter {alias}\'s port: ', required=required)
 
+    if not remote_port:
+        return None
+
     try:
         remote_port = int(remote_port)
 
@@ -154,9 +157,10 @@ class Client:
 
         return public_ip4, public_ip6, local_port
 
-    def edit_peer(self, alias, remote_ip, remote_port):
+    def edit_peer(self, alias, new_alias, remote_ip, remote_port):
         return self.request('edit_peer', {
             'alias': alias,
+            'new_alias': new_alias,
             'remote_ip': remote_ip,
             'remote_port': remote_port
         })

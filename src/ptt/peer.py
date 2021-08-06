@@ -201,6 +201,9 @@ class Peer:
 
         self.daemon.db_write(sql)
 
+        if 'alias' in kwargs and kwargs['alias']:
+            self.alias = kwargs['alias']
+
         if 'local_port' in kwargs and kwargs['local_port']:
             self.local_port = kwargs['local_port']
 
