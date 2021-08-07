@@ -82,11 +82,11 @@ Remove a peer from the database.
 
 Establish a direct, secure connection to a peer via TCP hole-punching and TLS. You and your peer should receive desktop notifications upon connecting.
 
-#### `ptt disconnect`
+#### `ptt disconnect` *
 
 Disconnect from a peer. Both parties should receive dekstop notifications.
 
-#### `ptt send-text`
+#### `ptt send-text` *
 
 Type and send a text message to a peer. Your peer should receive a desktop notification upon receiving the text.
 
@@ -94,10 +94,14 @@ Type and send a text message to a peer. Your peer should receive a desktop notif
 
 Show texts sent to/received from a peer, including timstampes when texts were sent/received.
 
-#### `ptt share-file`
+#### `ptt share-file` *
 
 Send a file to a peer. You'll be prompted for the filepath. Your peer should receive a desktop notification upon receiving the file.
 
 #### `ptt list-files`
 
 List names of files that have been sent to/received from the peer, including timestamps when files were shared.
+
+---
+
+\* Must be connected to peer
