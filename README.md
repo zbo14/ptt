@@ -8,7 +8,7 @@ Peer-to-peer (p2p), command-line application for secure messaging and file-shari
 
 `ptt` allows you to securely text and share files directly with people on other home/office networks.
 
-First, specify a peer by public IP address and external port and assign them a memorable, (locally) unique name. Once both peers have added each other's contact information, they can establish a direct, secure communication via TCP hole-punching and TLS. Then they can send and receive message and files over the connection. All data is encrypted and communicated directly between peers, i.e. there's no intermediary server(s).
+First, specify a peer by public IP address and external port and assign them a memorable, (locally) unique name. Once both peers have added each other's contact information, they can establish a direct, secure communication via TCP hole-punching and TLS. Then they can send and receive message and files over the connection. All data is encrypted and communicated directly between peers, i.e. there are no intermediary servers.
 
 ## What's with the name?
 
